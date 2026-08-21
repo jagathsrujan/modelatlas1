@@ -66,60 +66,63 @@ body {
 /* smooth theme transition for cards */
 .dark .shadow-sm { --tw-shadow-color: rgb(0 0 0 / 0.4); }
 
-/* ---------- Dark mode global overrides for rapid coverage ---------- */
-/* Surfaces */
-html.dark .bg-white { background-color: var(--surface) !important; }
-html.dark .bg-\[\#fcfcfa\] { background-color: var(--background) !important; }
-html.dark .bg-zinc-50 { background-color: var(--surface-2) !important; }
-html.dark .bg-zinc-100 { background-color: #27272a !important; }
-html.dark .bg-zinc-50\/50,
-html.dark .bg-zinc-50\/70,
-html.dark .bg-amber-50\/70,
-html.dark .bg-amber-50\/50,
-html.dark .bg-white\/90,
-html.dark .bg-white\/75 { background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important; }
+/* ---------- Dark mode global overrides — surgical, not blanket ---------- */
+/* Page / card surfaces — preserve intentional white-on-dark buttons via .preserve-light */
+html.dark .bg-white:not(.preserve-light) { background-color: var(--surface) !important; }
+html.dark .bg-\[\#fcfcfa\]:not(.preserve-light) { background-color: var(--background) !important; }
+html.dark .bg-zinc-50:not(.preserve-light) { background-color: var(--surface-2) !important; }
+html.dark .bg-zinc-100:not(.preserve-light) { background-color: #27272a !important; }
+html.dark .bg-zinc-50\/50:not(.preserve-light),
+html.dark .bg-zinc-50\/70:not(.preserve-light),
+html.dark .bg-white\/90:not(.preserve-light),
+html.dark .bg-white\/75:not(.preserve-light) { background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important; }
 
-/* Colored surfaces — keep hue but darken for dark mode */
-html.dark .bg-amber-50 { background-color: #1c1917 !important; }
-html.dark .bg-amber-100 { background-color: #292524 !important; }
-html.dark .bg-emerald-50 { background-color: #042f2e !important; }
-html.dark .bg-sky-50 { background-color: #0c2e4a !important; }
-html.dark .bg-sky-100 { background-color: #0c3558 !important; }
-html.dark .bg-amber-50\/70 { background-color: color-mix(in srgb, #1c1917 85%, transparent) !important; }
+/* Colored tints — keep hue, darken, handle opacity variants */
+html.dark .bg-amber-50:not(.preserve-light) { background-color: #1c1917 !important; }
+html.dark .bg-amber-50\/70:not(.preserve-light),
+html.dark .bg-amber-50\/50:not(.preserve-light) { background-color: color-mix(in srgb, #1c1917 85%, transparent) !important; }
+html.dark .bg-amber-100:not(.preserve-light) { background-color: #292524 !important; }
+html.dark .bg-emerald-50:not(.preserve-light) { background-color: #042f2e !important; }
+html.dark .bg-emerald-50\/70:not(.preserve-light) { background-color: color-mix(in srgb, #042f2e 85%, transparent) !important; }
+html.dark .bg-sky-50:not(.preserve-light) { background-color: #0c2e4a !important; }
+html.dark .bg-sky-100:not(.preserve-light) { background-color: #0c3558 !important; }
 
-/* Text */
-html.dark .text-zinc-900 { color: #fafafa !important; }
-html.dark .text-zinc-800 { color: #e4e4e7 !important; }
-html.dark .text-zinc-700 { color: #d4d4d8 !important; }
-html.dark .text-zinc-600 { color: #a1a1aa !important; }
-html.dark .text-zinc-500 { color: #71717a !important; }
-html.dark .text-amber-900 { color: #fde68a !important; }
-html.dark .text-amber-800 { color: #fcd34d !important; }
-html.dark .text-emerald-800 { color: #6ee7b7 !important; }
-html.dark .text-sky-800 { color: #7dd3fc !important; }
-html.dark .text-sky-700 { color: #38bdf8 !important; }
+/* Text — tint from hue, never pure gray on colored ground */
+html.dark .text-zinc-900:not(.preserve-light) { color: #fafafa !important; }
+html.dark .text-zinc-800:not(.preserve-light) { color: #e4e4e7 !important; }
+html.dark .text-zinc-700:not(.preserve-light) { color: #d4d4d8 !important; }
+html.dark .text-zinc-600:not(.preserve-light) { color: #a1a1aa !important; }
+html.dark .text-zinc-500:not(.preserve-light) { color: #71717a !important; }
+html.dark .text-amber-900:not(.preserve-light) { color: #fde68a !important; }
+html.dark .text-amber-800:not(.preserve-light) { color: #fcd34d !important; }
+html.dark .text-emerald-800:not(.preserve-light) { color: #6ee7b7 !important; }
+html.dark .text-sky-800:not(.preserve-light) { color: #7dd3fc !important; }
+html.dark .text-sky-700:not(.preserve-light) { color: #38bdf8 !important; }
 
 /* Borders */
-html.dark .border { border-color: var(--border) !important; }
-html.dark .border-zinc-200,
-html.dark .border-zinc-100,
-html.dark .border-zinc-300,
-html.dark .border-amber-200,
-html.dark .border-emerald-200,
-html.dark .border-sky-200 { border-color: var(--border) !important; }
+html.dark .border:not(.preserve-light) { border-color: var(--border) !important; }
+html.dark .border-zinc-200:not(.preserve-light),
+html.dark .border-zinc-100:not(.preserve-light),
+html.dark .border-zinc-300:not(.preserve-light),
+html.dark .border-amber-200:not(.preserve-light),
+html.dark .border-emerald-200:not(.preserve-light),
+html.dark .border-sky-200:not(.preserve-light) { border-color: var(--border) !important; }
 
-/* Inputs */
-html.dark input,
-html.dark textarea,
-html.dark select {
+/* Inputs — exclude preserve-light */
+html.dark input:not(.preserve-light),
+html.dark textarea:not(.preserve-light),
+html.dark select:not(.preserve-light) {
   background-color: var(--surface-2) !important;
   color: var(--foreground) !important;
   border-color: var(--border) !important;
 }
-html.dark input::placeholder,
-html.dark textarea::placeholder { color: #71717a !important; }
+html.dark input:not(.preserve-light)::placeholder,
+html.dark textarea:not(.preserve-light)::placeholder { color: #71717a !important; }
 
-/* Amber / emerald / sky pills in dark need softer borders */
-html.dark .bg-amber-50 { border-color: #44403c !important; }
-html.dark .bg-emerald-50 { border-color: #134e4a !important; }
-html.dark .bg-sky-50 { border-color: #0c4a6e !important; }
+/* Browser surfaces — cheap signal of craft */
+html.dark ::selection { background: #27272a; color: #fafafa; }
+html.dark ::-moz-selection { background: #27272a; color: #fafafa; }
+html.dark * { caret-color: var(--brand-accent); scrollbar-color: var(--border-strong) transparent; }
+
+/* Tabular numerals where measurement lives */
+.tabular-nums { font-variant-numeric: tabular-nums; }

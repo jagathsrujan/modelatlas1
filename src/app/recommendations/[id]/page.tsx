@@ -396,21 +396,7 @@ function RecommendationsPageInner() {
           </div>
         )}
 
-        {/* small contextual copilot for steps 5-7 */}
-        <div className="mt-6">
-          <DecisionCopilotPanel
-            step={currentStep===5 ? "comparison" : currentStep===6 ? "comparison" : "approval"}
-            trace={
-              currentStep===5 ? ["preset ranking: hard filters first", "policy gate: confidential excludes external API"] :
-              currentStep===6 ? ["alternatives ranked", "cluster topology + procurement + cost breakdown"] :
-              ["final review: assumptions, risks, provenance, verification checklist"]
-            }
-            provenance={["curated_fixture — CATALOG_MODELS & MARKETPLACE_LISTINGS"]}
-            freshness={"V1: <24h current · 24–72h aging — all listings labeled"}
-            assumptions={workload.assumptions.slice(0,2)}
-            showApprove={false}
-          />
-        </div>
+        {/* contextual copilot is already inside each step — no duplicate here */}
       </main>
     </div>
   );
