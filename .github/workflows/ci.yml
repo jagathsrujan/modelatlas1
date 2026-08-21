@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Domain determinism smoke (no keys, no network)
+        run: |
+          npx --yes tsx -e "
+          import { normalizeWorkload } from './src/lib/domain/workload-normalizer.ts';
+          import { DEMO_TRANSCRIPT, CATALOG_MODELS, HARDWARE_ASSETS } from './src/lib/data/seed.ts';
+          import { rankOptions } from './src/lib/domain/ranking-engine.ts';
+          const n = normalizeWorkload(DEMO_TRANSCRIPT);
+          if (!n.profile.budget) throw new Error('budget not extracted');
+          console.log('workflow-normalizer ok', n.profile.budget);
+          const wl = { id:'ci', title:'ci', description: DEMO_TRANSCRIPT, roles:['Finance'], input_modalities:['text','image'], output_modalities:['text'], data_sensitivity:'confidential', expected_users:6, requests_per_day:400, average_input_size:'2-5 pages', peak_concurrency:4, hours_per_day:9, growth_assumption:'20%', budget:{amount:600000,currency:'INR'}, country:'IN', comparison_horizon:'12 months', comparison_horizon_days:365, confirmed_at:new Date().toISOString(), assumptions:[], created_at:new Date().toISOString(), updated_at:new Date().toISOString() };
+          const r = rankOptions({ workload: wl, policy: null, catalogModels: CATALOG_MODELS, listings: [], hardwareAssets: HARDWARE_ASSETS.slice(0,2), preset:'privacy_local_first' });
+          if (r.recommendations.length===0) throw new Error('no recommendations');
+          console.log('ranking ok', r.recommendations[0].candidate_id);
+          "
