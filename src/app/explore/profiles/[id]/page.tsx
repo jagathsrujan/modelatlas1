@@ -1,14 +1,14 @@
 "use client";
-import { Suspense } from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Nav } from "@/components/Nav";
 import { DecisionCopilotPanel } from "@/components/DecisionCopilotPanel";
+import { WizardProgress, YourInputsSummary } from "@/components/WizardProgress";
 import { localRepository } from "@/lib/persistence/local-repository";
 import { HARDWARE_ASSETS } from "@/lib/data/seed";
 import { inspectHardwareEvidence, confirmHardware } from "@/lib/domain/hardware-service";
-import { planClusterTopology } from "@/lib/domain/cluster-planner";
+import { loadDraft, saveDraft, clampStep, type WizardStep } from "@/lib/wizard/wizard-state";
 import type { WorkloadProfile, HardwareAsset } from "@/lib/domain/types";
 
 function ProfilePageInner() {
@@ -16,6 +16,8 @@ function ProfilePageInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const isDemo = sp.get("demo") === "true";
+  const rawStep = sp.get("step");
+  const requested = rawStep ? parseInt(rawStep, 10) : 3;
 
   const [workload, setWorkload] = useState<WorkloadProfile | null>(null);
   const [hardwareList, setHardwareList] = useState<HardwareAsset[]>(HARDWARE_ASSETS.slice(0, 2));
@@ -25,13 +27,84 @@ function ProfilePageInner() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showLow, setShowLow] = useState(false);
 
+  // load workload + hardware, and hydrate wizard completed if needed
   useEffect(() => {
     localRepository.getWorkload(id).then((w) => {
-      if (w) { setWorkload(w); if (w.ranking_preset) setPreset(w.ranking_preset as never); }
-      else setWorkload({ id, title: "Private document assistant (demo)", description: "Seed", roles: ["Finance"], input_modalities: ["text", "image", "spreadsheet"], output_modalities: ["text"], data_sensitivity: "confidential", expected_users: 6, requests_per_day: 500, average_input_size: "2-5 pages", peak_concurrency: 4, hours_per_day: 9, growth_assumption: "20% YoY", budget: { amount: 600000, currency: "INR" }, country: "IN", comparison_horizon: "12 months", comparison_horizon_days: 365, confirmed_at: new Date().toISOString(), assumptions: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString() } as WorkloadProfile);
+      if (w) {
+        setWorkload(w);
+        if (w.ranking_preset) setPreset(w.ranking_preset as never);
+        // ensure wizard knows we have passed step 2
+        const d = loadDraft();
+        if (d.completedUpTo < 2) saveDraft({ workloadId: w.id, completedUpTo: 2 });
+      } else {
+        const fallback: WorkloadProfile = {
+          id,
+          title: "Private document assistant (demo)",
+          description: "Seed",
+          roles: ["Finance"],
+          input_modalities: ["text", "image", "spreadsheet"],
+          output_modalities: ["text"],
+          data_sensitivity: "confidential",
+          expected_users: 6,
+          requests_per_day: 500,
+          average_input_size: "2-5 pages",
+          peak_concurrency: 4,
+          hours_per_day: 9,
+          growth_assumption: "20% YoY",
+          budget: { amount: 600000, currency: "INR" },
+          country: "IN",
+          comparison_horizon: "12 months",
+          comparison_horizon_days: 365,
+          confirmed_at: new Date().toISOString(),
+          assumptions: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as WorkloadProfile;
+        setWorkload(fallback);
+        const d = loadDraft();
+        if (d.completedUpTo < 2) saveDraft({ workloadId: id, completedUpTo: 2 });
+      }
     });
     localRepository.listHardware().then((list) => { if (list.length > 0) setHardwareList(list); });
   }, [id]);
+
+  // sessionStorage for hardware draft (persist across reload)
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(`ma_profile_${id}_preset`);
+      if (saved && !preset) setPreset(JSON.parse(saved) as never);
+    } catch {}
+  }, [id]);
+  useEffect(() => {
+    try { sessionStorage.setItem(`ma_profile_${id}_preset`, JSON.stringify(preset)); } catch {}
+  }, [preset, id]);
+
+  const [completedUpTo, setCompletedUpTo] = useState(0);
+  useEffect(() => { setCompletedUpTo(loadDraft().completedUpTo); }, [workload]);
+  const currentStep: WizardStep = useMemo(() => {
+    const fallback: WizardStep = 3;
+    const clamped = clampStep(requested || fallback, completedUpTo, fallback);
+    if (clamped < 3) return 3;
+    if (clamped > 4) return 4;
+    return clamped as WizardStep;
+  }, [requested, completedUpTo]);
+
+  useEffect(() => {
+    const urlStep = rawStep ? parseInt(rawStep, 10) : null;
+    if (urlStep !== currentStep) {
+      const params = new URLSearchParams(sp.toString());
+      params.set("step", String(currentStep));
+      router.replace(`?${params.toString()}`);
+    }
+  }, [currentStep, rawStep, sp, router]);
+
+  const goToStep = (n: 3 | 4) => {
+    const d = loadDraft();
+    if (n > d.completedUpTo + 1) return;
+    const params = new URLSearchParams(sp.toString());
+    params.set("step", String(n));
+    router.push(`?${params.toString()}`);
+  };
 
   const handleUpload = (hint: string) => {
     const evidenceId = `evidence-${Date.now().toString(36)}.png`;
@@ -51,13 +124,29 @@ function ProfilePageInner() {
     localRepository.saveHardware(confirmed);
     setExtracted(null);
     setWarnings([]);
+    // mark hardware confirmed in wizard
+    saveDraft({ hardwareConfirmed: true });
   };
 
-  const handleContinue = async () => {
+  const handleConfirmHardwareStep = () => {
+    // allow even if hardware list already has items (seeded)
+    const nextCompleted = Math.max(loadDraft().completedUpTo, 3);
+    saveDraft({ hardwareConfirmed: true, completedUpTo: nextCompleted });
+    setCompletedUpTo(nextCompleted);
+    const params = new URLSearchParams(sp.toString());
+    params.set("step", "4");
+    router.push(`?${params.toString()}`);
+  };
+
+  const handleGenerateRecommendation = async () => {
     if (!workload) return;
     const updated = { ...workload, ranking_preset: preset, updated_at: new Date().toISOString() } as WorkloadProfile;
     await localRepository.saveWorkload(updated);
-    router.push(`/recommendations/${workload.id}${isDemo ? "?demo=true" : ""}`);
+    const nextCompleted = Math.max(loadDraft().completedUpTo, 4);
+    saveDraft({ presetConfirmed: true, completedUpTo: nextCompleted });
+    setCompletedUpTo(nextCompleted);
+    const q = isDemo ? "?demo=true&step=5" : "?step=5";
+    router.push(`/recommendations/${workload.id}${q}`);
   };
 
   const policyResult = workload?.data_sensitivity === "confidential" ? "Privacy gate: Confidential → external API excluded even under Maximum Performance" : "Policy gate: passes";
@@ -66,36 +155,38 @@ function ProfilePageInner() {
     <div className="min-h-screen bg-[#fcfcfa]">
       <Nav />
       <DemoBanner />
-      <main className="mx-auto max-w-6xl px-6 py-8 sm:px-6">
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
-          <span className="rounded-full bg-zinc-900 px-2.5 py-1 font-medium text-white">Step 3 — Hardware & preset</span>
-          <span>Confirm inventory and preference before ranking</span>
-        </div>
-        <h1 className="mt-3 text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">Confirmed workload + hardware context</h1>
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+        <WizardProgress current={currentStep} completedUpTo={completedUpTo} onStepClick={(n) => n >= 3 && n <= 4 && goToStep(n as 3 | 4)} />
+
         {workload && (
-          <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="mt-4 rounded-2xl border bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold text-zinc-900">{workload.title}</div>
-                <div className="mt-1 max-w-2xl text-xs leading-5 text-zinc-600">{workload.description.slice(0, 360)}</div>
+                <div className="mt-1 max-w-xl text-xs leading-5 text-zinc-600 line-clamp-2">{workload.description.slice(0, 180)}…</div>
               </div>
               <span className="rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white">{workload.data_sensitivity}</span>
             </div>
-            <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-sky-800 border border-sky-200">{workload.input_modalities.join(" · ")}</span>
-              <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-700">{workload.requests_per_day} req/day · {workload.expected_users} users</span>
-              <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-zinc-700">{workload.budget?.currency ?? "INR"} {(workload.budget?.amount ?? 0).toLocaleString()} · {workload.country} · {workload.comparison_horizon}</span>
-            </div>
+            <YourInputsSummary items={[
+              { label: "Inputs", value: workload.input_modalities.join(" · ") },
+              { label: "Budget", value: `${workload.budget?.currency ?? "INR"} ${(workload.budget?.amount ?? 0).toLocaleString()}` },
+              { label: "Country", value: workload.country ?? "" },
+            ]} />
           </div>
         )}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-5">
-          <div className="space-y-4 lg:col-span-3">
-            <div className="rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="text-sm font-semibold text-zinc-900">Hardware — upload evidence or type model</h2>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">Photo, box, invoice, PDF or screenshot. Each field shows confidence + source reference. Low confidence stays unconfirmed until you edit.</p>
+        {/* Step 3: hardware only */}
+        {currentStep === 3 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">3</span>
+              <h1 className="text-lg font-bold tracking-tight text-zinc-900">Confirm hardware</h1>
+              <span className="ml-auto rounded-full border bg-white px-2.5 py-1 text-xs text-zinc-600">Upload / type evidence</span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">Photo, box, invoice, PDF or screenshot. Each field shows confidence + source reference. Low confidence stays unconfirmed until you edit.</p>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+              <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => handleUpload("mac-studio-m2ultra.png")} className="rounded-xl border bg-zinc-50 px-3 py-3 text-xs font-medium hover:bg-white hover:shadow-sm">📷 Mac Studio screenshot (seeded)</button>
                 <button onClick={() => handleUpload("ops-pc-rtx4090.pdf")} className="rounded-xl border bg-zinc-50 px-3 py-3 text-xs font-medium hover:bg-white hover:shadow-sm">🧾 PC invoice — RTX 4090 (seeded)</button>
                 <button onClick={() => handleUpload("macbook-m3pro.jpg")} className="rounded-xl border bg-zinc-50 px-3 py-3 text-xs font-medium hover:bg-white hover:shadow-sm">💻 MacBook box photo</button>
@@ -141,62 +232,60 @@ function ProfilePageInner() {
                     <button onClick={handleConfirmHardware} className="rounded-full bg-zinc-900 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800">Confirm and add to inventory</button>
                     <button onClick={() => { setExtracted(null); setWarnings([]); }} className="rounded-full border bg-white px-5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50">Skip / retry</button>
                   </div>
-                  <div className="mt-2 text-xs text-zinc-500">Evidence stays linked to the asset per workspace retention — source reference preserved after confirmation.</div>
                 </div>
               )}
 
-              <div className="mt-5">
-                <div className="text-xs font-semibold text-zinc-900">Ranking preset — no sliders in V1</div>
-                <p className="text-xs text-zinc-500">Hard constraints always run first. Preset only re-ranks eligible options.</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {(["best_value", "maximum_performance", "lowest_upfront", "privacy_local_first", "fastest_deployment"] as const).map((p) => (
-                    <button key={p} onClick={() => setPreset(p)} className={`rounded-xl border px-3 py-3 text-left text-xs ${preset === p ? "bg-zinc-900 text-white border-zinc-900" : "bg-zinc-50 text-zinc-700 hover:bg-white"}`}>
-                      <div className="font-semibold">{p.replace(/_/g, " ")}</div>
-                      <div className="text-[11px] opacity-70">{p === "privacy_local_first" ? "local/private wins" : p === "best_value" ? "quality + cost balance" : p === "maximum_performance" ? "capability first" : p === "lowest_upfront" ? "cheapest first buy" : "fastest to deploy"}</div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">{policyResult} <span className="text-sky-700">(visible before ranking, per spec)</span></div>
+              <button onClick={handleConfirmHardwareStep} className="mt-5 w-full rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800">
+                Confirm hardware
+              </button>
+              <p className="mt-2 text-center text-xs text-zinc-500">Advances to <span className="font-medium">Step 4 — Choose preference</span>. URL becomes <span className="font-mono">?step=4</span>.</p>
+            </div>
+
+            <div className="mt-4">
+              <DecisionCopilotPanel step="evidence" trace={["hardware extraction with per-field confidence", "inventory reusable across profiles"]} provenance={["local deterministic service"]} freshness={"curated — inventory is seeded demo data"} assumptions={["Demo inventory is seeded and user-confirmed where marked"]} />
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: preference only */}
+        {currentStep === 4 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2">
+              <button onClick={() => goToStep(3)} className="rounded-full border bg-white px-3 py-1 text-xs font-medium hover:bg-zinc-50">← Back to hardware</button>
+              <span className="ml-auto rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600">Hard constraints first</span>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">4</span>
+              <h1 className="text-lg font-bold tracking-tight text-zinc-900">Choose preference</h1>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">Hard constraints (privacy, modality, hardware fit, freshness) always run before preset scoring. Preset only re-ranks what’s already eligible.</p>
+
+            <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+              <div className="grid grid-cols-2 gap-2">
+                {(["best_value", "maximum_performance", "lowest_upfront", "privacy_local_first", "fastest_deployment"] as const).map((p) => (
+                  <button key={p} onClick={() => setPreset(p)} className={`rounded-xl border px-3 py-3 text-left text-xs ${preset === p ? "bg-zinc-900 text-white border-zinc-900" : "bg-zinc-50 text-zinc-700 hover:bg-white"}`}>
+                    <div className="font-semibold">{p.replace(/_/g, " ")}</div>
+                    <div className="text-[11px] opacity-70">{p === "privacy_local_first" ? "local/private wins" : p === "best_value" ? "quality + cost balance" : p === "maximum_performance" ? "capability first" : p === "lowest_upfront" ? "cheapest first buy" : "fastest to deploy"}</div>
+                  </button>
+                ))}
               </div>
+              <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">{policyResult} <span className="text-sky-700">(visible before ranking, per spec)</span></div>
+              <YourInputsSummary items={[
+                { label: "Hardware", value: `${hardwareList.length} assets · ${hardwareList.filter(h=>h.user_confirmed).length} confirmed` },
+                { label: "Preset", value: preset ?? "" },
+              ]} />
+              <button onClick={handleGenerateRecommendation} className="mt-5 w-full rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+                Generate recommendation
+              </button>
+              <p className="mt-2 text-center text-xs text-zinc-500">Creates the ranked set and goes to <span className="font-medium">Step 5 — Review primary</span>.</p>
+            </div>
+
+            <div className="mt-4">
+              <DecisionCopilotPanel step="comparison" trace={["policy gate result visible before ranking", "preset ranking: hard filters first, then weighted preset"]} provenance={["curated_fixture"]} freshness={"V1 presets only — no sliders"} assumptions={workload?.assumptions ?? []} />
             </div>
           </div>
-
-          <div className="lg:col-span-2">
-            <div className="sticky top-[84px] space-y-4">
-              <DecisionCopilotPanel
-                step="evidence"
-                question={showLow ? "We could not identify hardware confidently — please edit or skip." : undefined}
-                trace={["hardware extraction with per-field confidence", "inventory reusable across profiles and workspaces", "policy gate result visible before ranking"]}
-                freshness="curated — inventory is seeded demo data"
-                assumptions={["Demo inventory is seeded and user-confirmed where marked"]}
-              />
-              {hardwareList.length >= 2 && workload && (
-                <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                  <div className="text-xs font-semibold text-zinc-900">Cluster preview — {hardwareList.length} machines</div>
-                  <PreviewCluster workload={workload} assets={hardwareList} />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button onClick={handleContinue} className="rounded-full bg-emerald-600 px-7 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">Review recommendation →</button>
-          <span className="text-xs leading-5 text-zinc-500">Privacy / Local-First is ideal for confidential docs. You can switch presets on the next screen and see the order change.</span>
-        </div>
+        )}
       </main>
-    </div>
-  );
-}
-
-function PreviewCluster({ workload, assets }: { workload: WorkloadProfile; assets: HardwareAsset[] }) {
-  const plan = planClusterTopology({ assets: assets.slice(0, Math.min(4, assets.length)), workload, objective: "general" as never });
-  return (
-    <div className="mt-3 text-xs leading-5">
-      <div>Topology: <span className="rounded-full bg-zinc-900 px-2 py-0.5 font-medium text-white">{plan.topology_type}</span></div>
-      <div className="mt-1 text-zinc-700">{plan.memory_fit_summary}</div>
-      <div className="mt-1 text-zinc-600">{plan.expected_benefit}</div>
-      <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">VRAM is not pooled without a compatible runtime + topology — see full recommendation page for interconnect, runtime and verification tasks.</div>
     </div>
   );
 }
