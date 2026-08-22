@@ -168,7 +168,7 @@ function ProfilePageInner() {
       {currentStep === 3 && (
         <>
           <div className="mb-6">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Verify hardware</h1>
+            <h1 className="font-display text-2xl tracking-[-0.02em] sm:text-[28px]">Verify <em className="font-display italic">hardware</em></h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">We’ll check what you already own. Upload evidence — we’ll extract fields and ask you to confirm low-confidence ones. High-confidence fields stay collapsed.</p>
           </div>
 
@@ -344,7 +344,7 @@ function ProfilePageInner() {
       {currentStep === 4 && (
         <div className="mt-6">
           <div className="mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Choose preference</h1>
+            <h1 className="font-display text-2xl tracking-[-0.02em] sm:text-[28px]">Choose <em className="font-display italic">preference</em></h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">Hard constraints always run before preset scoring. Preset only re-ranks what’s already eligible.</p>
           </div>
           <div className="panel p-5">

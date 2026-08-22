@@ -29,7 +29,7 @@ export function LogoReveal({ className = "", compact = false }: { className?: st
             className={`cinema-mark w-auto text-[#e8eef6] ${compact ? "h-12 sm:h-14" : "h-16 sm:h-20 lg:h-24"}`}
           />
           <div
-            className={`cinema-word font-semibold tracking-[-0.03em] text-[#eef3f9] ${
+            className={`cinema-word font-display tracking-[-0.02em] text-[#eef3f9] ${
               compact ? "text-2xl sm:text-3xl" : "text-[34px] leading-none sm:text-5xl lg:text-[54px]"
             }`}
           >

@@ -177,7 +177,7 @@ function ExploreNewPageInner() {
       {stage === 1 ? (
         <>
           <div className="mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Describe the work</h1>
+            <h1 className="font-display text-2xl tracking-[-0.02em] sm:text-[28px]">Describe the <em className="font-display italic">work</em></h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">What are you trying to build or run? Use plain language — no model names needed.</p>
           </div>
 
@@ -308,7 +308,7 @@ function ExploreNewPageInner() {
       ) : (
         <>
           <div className="mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Set privacy</h1>
+            <h1 className="font-display text-2xl tracking-[-0.02em] sm:text-[28px]">Set <em className="font-display italic">privacy</em></h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose how sensitive your data is. This is a hard filter — it removes ineligible options before ranking.</p>
           </div>
 

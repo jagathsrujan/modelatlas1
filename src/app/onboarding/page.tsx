@@ -4,6 +4,33 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+function formatOnboardingError(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+
+  if (typeof error === "object" && error !== null) {
+    const candidate = error as {
+      code?: unknown;
+      message?: unknown;
+      details?: unknown;
+      hint?: unknown;
+    };
+    const parts = [candidate.message, candidate.details, candidate.hint]
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0);
+    if (parts.length > 0) {
+      const code = typeof candidate.code === "string" ? ` (code ${candidate.code})` : "";
+      return `${parts.join(" — ")}${code}`;
+    }
+
+    try {
+      return JSON.stringify(error) || "Unexpected workspace creation error";
+    } catch {
+      return "Unexpected workspace creation error";
+    }
+  }
+
+  return String(error);
+}
+
 export default function OnboardingPage() {
   const [user, setUser] = useState<any>(null);
   const [workspaceName, setWorkspaceName] = useState("My Team Workspace");
@@ -37,13 +64,17 @@ export default function OnboardingPage() {
     setSaving(true);
     setError(null);
     try {
-      // Create workspace
-      const { data: ws, error: wsErr } = await supabase.from("workspaces").insert({
+      // Generate the ID before insertion. The workspace is not visible through
+      // the SELECT RLS policy until the membership row exists, so selecting the
+      // inserted row here would make a successful insert look like a failure.
+      const workspaceId = crypto.randomUUID();
+      const { error: wsErr } = await supabase.from("workspaces").insert({
+        id: workspaceId,
         name: workspaceName,
         maximum_privacy_classification: "confidential",
-      } as any).select().single();
+      } as any);
       if (wsErr) throw wsErr;
-      const workspaceId = (ws as any).id as string;
+
       // Add self as owner
       const { error: memErr } = await supabase.from("workspace_members").insert({
         workspace_id: workspaceId,
@@ -72,7 +103,7 @@ export default function OnboardingPage() {
       // Seed hardware + opportunity for demo? Keep empty for real user
       router.push(`/workspaces/${workspaceId}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatOnboardingError(e));
       setSaving(false);
     }
   };
@@ -111,7 +142,7 @@ export default function OnboardingPage() {
             </ul>
           </div>
 
-          {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300">{error}</div>}
+          {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300">Workspace creation failed: {error}</div>}
 
           <button type="submit" disabled={saving || !workspaceName.trim()} className="w-full rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
             {saving ? "Creating…" : "Create workspace →"}

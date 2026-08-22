@@ -7,13 +7,14 @@ import { BrandTile } from "@/components/BrandMark";
 import { createClient } from "@/lib/supabase/client";
 
 const ITEMS = [
-  { href: "/", label: "Home" },
+  { href: "/home", label: "Home" },
   { href: "/explore/new", label: "Personal Explorer" },
   { href: "/workspaces/ws-manufacturing-demo", label: "Team Workspace" },
   { href: "/settings/policies", label: "Policies" },
 ];
 
 function isActive(pathname: string, href: string) {
+  if (href === "/home") return pathname === "/" || pathname === "/home";
   return pathname === href || (href !== "/" && pathname.startsWith(href));
 }
 
@@ -53,7 +54,7 @@ function NavInner() {
   return (
     <nav className="sticky top-0 z-40 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_86%,transparent)] backdrop-blur-md supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--background)_78%,transparent)]">
       <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
-        <Link href={`/${q}`} className="mr-2 flex items-center gap-2.5 rounded-lg" aria-label="ModelAtlas home">
+        <Link href={`/home${q}`} className="mr-2 flex items-center gap-2.5 rounded-lg" aria-label="ModelAtlas home">
           <BrandTile size="md" />
           <span className="hidden sm:inline text-[15px] font-semibold tracking-tight text-zinc-900 dark:text-white">ModelAtlas</span>
         </Link>

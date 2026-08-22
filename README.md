@@ -121,7 +121,7 @@ npx supabase db reset && npx supabase inspect db table-stats | grep -i rls
 curl -X POST http://localhost:3000/api/agent/step -H 'Content-Type: application/json' \
   -d '{"session_id":"x","tool":"save_decision_brief","arguments":{}}' # → 401 when ?demo!=true
 # 4. Demo still works offline
-open http://localhost:3000/?demo=true   # no login needed
+open http://localhost:3000/explore/new?demo=true\&autostart=1   # no login needed
 ```
 
 ---

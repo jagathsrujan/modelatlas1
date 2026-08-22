@@ -30,7 +30,7 @@ export function DecisionShell({ stage, sessionName = "Demo session", onStageClic
     <div className="flex min-h-screen flex-col bg-[var(--background)]">
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/?demo=true" className="flex items-center gap-2.5 rounded-lg" aria-label="ModelAtlas home">
+          <Link href="/home" className="flex items-center gap-2.5 rounded-lg" aria-label="ModelAtlas home">
             <BrandTile size="sm" />
             <span className="hidden text-sm font-semibold tracking-tight text-[var(--foreground)] sm:inline">ModelAtlas</span>
           </Link>
