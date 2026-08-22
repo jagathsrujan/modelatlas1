@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const ITEMS = [
   { href: "/home", label: "Home" },
+  { href: "/catalog", label: "Catalog" },
   { href: "/explore/new", label: "Personal Explorer" },
   { href: "/workspaces/ws-manufacturing-demo", label: "Team Workspace" },
   { href: "/settings/policies", label: "Policies" },
