@@ -16,7 +16,7 @@ import { planClusterTopology } from "@/lib/domain/cluster-planner";
 import { calculateDirectCost } from "@/lib/domain/cost-calculator";
 import { CURATED_RESEARCH_BRIEF } from "@/lib/data/research-fixture";
 import { loadDraft, saveDraft, clampStep, type WizardStep } from "@/lib/wizard/wizard-state";
-import type { WorkloadProfile, RankingPreset, HardwareAsset } from "@/lib/domain/types";
+import type { WorkloadProfile, RankingPreset, HardwareAsset, ResearchBrief } from "@/lib/domain/types";
 
 function RecommendationsPageInner() {
   const { id } = useParams<{ id: string }>();
@@ -29,9 +29,15 @@ function RecommendationsPageInner() {
   const [workload, setWorkload] = useState<WorkloadProfile | null>(null);
   const [preset, setPreset] = useState<RankingPreset>("privacy_local_first");
   const [hardware, setHardware] = useState<HardwareAsset[]>([]);
-  const [showScout, setShowScout] = useState(false);
+  const [showScout, setShowScout] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  // M4: Scout scope picker + live fetch (hierarchy, budget, corroboration, RLS save, retry/cached)
+  const [scoutScope, setScoutScope] = useState<"Official and benchmark sources" | "Official plus community signals" | "Hardware and purchase research">("Official and benchmark sources");
+  const [scoutBrief, setScoutBrief] = useState<ResearchBrief | null>(null);
+  const [scoutLoading, setScoutLoading] = useState(false);
+  const [scoutError, setScoutError] = useState<string | null>(null);
+  const [scoutRetryTick, setScoutRetryTick] = useState(0);
 
   useEffect(() => {
     localRepository.getWorkload(id).then((w) => {
@@ -82,6 +88,31 @@ function RecommendationsPageInner() {
   useEffect(() => {
     if (selected) saveDraft({ selectedCandidate: selected });
   }, [selected]);
+
+  // Scout: fetch live via POST /api/research/scout with scope, budget ≤3 groups/≤8/≤5 fetches/≤2 browser, saves to research_briefs (RLS), shows retry/cached on 429
+  useEffect(() => {
+    if (!workload || !showScout) return;
+    setScoutLoading(true);
+    setScoutError(null);
+    const hint = `${workload.title ?? ""} ${workload.description ?? ""}`.slice(0, 200);
+    fetch(`/api/research/scout${isDemo ? "?demo=true" : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope: scoutScope, queryHint: hint }),
+    })
+      .then(async (r) => {
+        const j = (await r.json()) as ResearchBrief & { retryAvailable?: boolean; cachedFallback?: boolean; error?: string };
+        if (!r.ok && r.status !== 200) throw new Error(j.error ?? `Scout ${r.status}`);
+        return j as ResearchBrief;
+      })
+      .then((brief) => {
+        // Ensure demo still returns curated fixture
+        setScoutBrief(brief);
+        if (brief) localRepository.saveResearch(brief).catch(() => {});
+      })
+      .catch((e) => setScoutError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setScoutLoading(false));
+  }, [workload, isDemo, scoutScope, showScout, scoutRetryTick]);
 
   const [completedUpTo, setCompletedUpTo] = useState(0);
   useEffect(() => { setCompletedUpTo(loadDraft().completedUpTo); }, [workload]);
@@ -309,6 +340,55 @@ function RecommendationsPageInner() {
               <CostBreakdown lines={costLines.lines} total={costLines.lines.reduce((s, l) => s + l.amount, 0)} horizonNote={costLines.horizonNote} />
 
               <div className="rounded-xl border bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">Every listing: source + last-checked + “User verification required” where needed. No checkout — outbound links only.</div>
+
+              {/* M4 Scout: scope picker + hierarchy (API→fetch→browser≤2→cached→curated), corroboration, retry/cached on 429 */}
+              <div className="rounded-2xl border bg-white p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-zinc-900">Research Scout scope</span>
+                  <span className="text-xs text-zinc-500">— pick before research starts (workspace may restrict community)</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    "Official and benchmark sources",
+                    "Official plus community signals",
+                    "Hardware and purchase research",
+                  ].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setScoutScope(s as any)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium border ${scoutScope === s ? "bg-zinc-900 text-white border-zinc-900" : "bg-white text-zinc-700 hover:bg-zinc-50"}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                  <button onClick={() => setShowScout((v) => !v)} className="ml-auto rounded-full border bg-white px-3 py-1.5 text-xs text-zinc-600">
+                    {showScout ? "Hide scout" : "Show scout"}
+                  </button>
+                </div>
+                {showScout && (
+                  <div className="mt-4">
+                    {scoutLoading && <div className="rounded-xl border bg-zinc-50 p-3 text-xs text-zinc-600">Scouting… ≤3 query groups · ≤8/group · ≤5 fetches · ≤2 browser — hierarchy API→fetch→browser→cached→curated</div>}
+                    {scoutError && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        Scout blocked ({scoutError}) — <button onClick={() => setScoutRetryTick((x) => x + 1)} className="underline font-medium">Retry research</button> · Use cached snapshot if available · Not bypassing login/CAPTCHA/paywall/robots
+                      </div>
+                    )}
+                    {scoutBrief && !scoutLoading && (
+                      <>
+                        <ResearchScoutPanel brief={scoutBrief} onRetry={() => setScoutRetryTick((x) => x + 1)} />
+                        {(scoutBrief as any).retryAvailable && (
+                          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                            Rate-limited or blocked — showing {scoutBrief.status === "curated" ? "curated fallback" : "cached snapshot"} · <button onClick={() => setScoutRetryTick((x) => x + 1)} className="underline">Retry</button> / Use cached
+                          </div>
+                        )}
+                        {(scoutBrief as any).cachedFallback && <div className="mt-1 text-xs text-zinc-500">Cached snapshot — last checked {new Date(scoutBrief.checked_at).toLocaleString()}</div>}
+                        <div className="mt-2 text-xs text-zinc-500">Budget enforced · Claims deduplicated · Injection stripped · Stale price lower confidence · Community needs corroboration before ranking</div>
+                      </>
+                    )}
+                    {!scoutBrief && !scoutLoading && !scoutError && <div className="rounded-xl border bg-zinc-50 p-3 text-xs text-zinc-500">Scout idle — pick a scope to run bounded retrieval.</div>}
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-2 pt-2">
                 <button onClick={() => goToStep(5)} className="flex-1 rounded-full border bg-white px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50">← Back</button>

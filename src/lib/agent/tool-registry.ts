@@ -237,12 +237,26 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     description: "Search approved APIs, public pages, browser-rendered pages, and permitted community sources; extract cited claims",
     argsSchema: z.object({ scope: z.string().optional(), query_hint: z.string().optional() }),
     guard: "query/source/page budget, source tier, access rules, prompt-injection filtering",
-    execute: async (_args) => {
-      // Bounded: ≤3 query groups, ≤8 results/group, ≤5 page fetches — enforced by fixture size
-      const brief = getResearchFixture();
-      // Injection filtering: strip claims that look like instructions
-      const safeClaims = brief.claims.filter(c=> !c.claim_text.toLowerCase().includes("ignore previous instructions") && !c.claim_text.toLowerCase().includes("system:"));
-      return { ...brief, claims: safeClaims };
+    execute: async (args) => {
+      const { scope = "Official and benchmark sources", query_hint = "private document RAG" } = args as { scope?: string; query_hint?: string };
+      const isDemo = typeof window !== "undefined" ? new URLSearchParams(window.location.search).has("demo") : process.env.NEXT_PUBLIC_DEMO_FALLBACK === "true";
+      if (isDemo) {
+        const brief = getResearchFixture();
+        const safeClaims = brief.claims.filter(c=> !c.claim_text.toLowerCase().includes("ignore previous instructions") && !c.claim_text.toLowerCase().includes("system:"));
+        return { ...brief, claims: safeClaims, scope };
+      }
+      // Live: use scout orchestrator (hierarchy, budget, corroboration, injection stripping)
+      try {
+        const { runResearchScout } = await import("@/lib/sources/scout");
+        const brief = await runResearchScout({ scope: scope as any, queryHint: query_hint, isDemo: false });
+        // Injection already stripped in scout, but double-check
+        const safeClaims = brief.claims.filter(c=> !c.claim_text.toLowerCase().includes("ignore previous instructions"));
+        return { ...brief, claims: safeClaims };
+      } catch (e) {
+        console.warn("[run_research_scout] live failed, fallback to curated", (e as Error).message);
+        const brief = getResearchFixture();
+        return { ...brief, scope };
+      }
     },
   },
   calculate_direct_cost: {
