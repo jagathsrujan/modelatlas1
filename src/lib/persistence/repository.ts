@@ -1,4 +1,4 @@
-import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief } from "@/lib/domain/types";
+import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief, ChatThread, ChatMessage } from "@/lib/domain/types";
 
 export interface Repository {
   // Workload
@@ -34,6 +34,13 @@ export interface Repository {
   saveResearch(r: ResearchBrief): Promise<ResearchBrief>;
   getResearch(id: string): Promise<ResearchBrief | null>;
   listResearch(): Promise<ResearchBrief[]>;
+  // Chat (AI Chatbot)
+  createThread(opts?: { workspaceId?: string; title?: string }): Promise<ChatThread>;
+  getThread(id: string): Promise<ChatThread | null>;
+  listThreads(opts?: { workspaceId?: string }): Promise<ChatThread[]>;
+  saveMessage(threadId: string, msg: Omit<ChatMessage, "id" | "thread_id" | "created_at"> & { id?: string }): Promise<ChatMessage>;
+  listMessages(threadId: string): Promise<ChatMessage[]>;
+  deleteThread(id: string): Promise<void>;
 }
 
 // Factory: demo → LocalRepository, else try Supabase if user is authenticated and env is set.

@@ -28,27 +28,55 @@ function isDemoMode(explicit?: boolean, queryDemo?: string | null): boolean {
   return false;
 }
 
-// Query planner: ≤3 queryGroups from confirmed workload / queryHint
+// Query planner: ≤3 queryGroups from confirmed workload / queryHint — now intent-aware for any GPU/model/price/compatibility question
 export function planQueryGroups(queryHint: string, scope: Scope): string[][] {
   const hint = queryHint.trim().slice(0, 300);
   if (!hint) return [["private document RAG models"]];
-  // Simple planner derived from RESEARCH_SCOUT §6 example + scope
+  const low = hint.toLowerCase();
+  const isPrice = /(price|pricing|cost|landed|buy|purchase|md computers|vedant|e2e|micro center|amazon|rtx|gtx|rx\s?\d|arc\s?a\d|gpu|hardware|h100|a100|b200)/i.test(hint);
+  const isModel = /(mistral|llama|phi|gemma|qwen|bge|whisper|pixtral|llava|model|catalog|benchmark|mteb|helm|mmlu)/i.test(hint);
+  const isCompat = /(vram|memory|shard|replica|cluster|dgx|mlx|vllm|cuda|compatibility|topology|quantization)/i.test(hint);
   const groups: string[][] = [];
-  if (scope.includes("Hardware")) {
-    groups.push([`${hint} GPU hardware India`, `H100 A100 pricing India 2024`, `MD Computers Vedant inventory`].slice(0, 3));
-    groups.push([`${hint} local runtime Apple Silicon MLX`, `vLLM CUDA performance`].slice(0, 2));
-    groups.push([`${hint} community setup friction thermals`, `Reddit RTX 4090 thermal`].slice(0, 2));
+  if (scope.includes("Hardware") || isPrice) {
+    groups.push([`${hint} GPU hardware India`, `${hint} pricing India 2025`, `MD Computers Vedant ${hint.split(" ").slice(0,2).join(" ")} inventory`].slice(0, 3));
+    if (isCompat) groups.push([`${hint} local runtime Apple Silicon MLX`, `vLLM CUDA quantization memory`].slice(0, 2));
+    else groups.push([`H100 A100 pricing India 2025`, `${hint} community setup thermals`].slice(0, 2));
+    groups.push([`Reddit ${hint} experience`, `YouTube ${hint} review India`].slice(0, 2));
   } else if (scope.includes("community")) {
-    groups.push([`${hint} private document RAG local LLM`, `confidential invoice processing`].slice(0, 2));
-    groups.push([`MLX distributed vs vLLM benchmarks`, `Apple Silicon CUDA compatibility`].slice(0, 2));
-    groups.push([`Reddit YouTube ${hint} experience`, `setup friction community`].slice(0, 2));
+    // community scope but also handle price/hardware inside community
+    if (isPrice) {
+      groups.push([`${hint} pricing India`, `${hint} availability India`].slice(0, 2));
+      groups.push([`Reddit ${hint} experience`, `${hint} thermals compatibility`].slice(0, 2));
+      groups.push([`YouTube ${hint} review`].slice(0, 1));
+    } else if (isModel) {
+      groups.push([`${hint} model capability benchmark`, `${hint} private document RAG`].slice(0, 2));
+      groups.push([`MLX distributed vs vLLM benchmarks`, `Apple Silicon CUDA compatibility`].slice(0, 2));
+      groups.push([`Reddit YouTube ${hint} experience`].slice(0, 1));
+    } else {
+      groups.push([`${hint} private document RAG local LLM`, `confidential invoice processing`].slice(0, 2));
+      groups.push([`MLX distributed vs vLLM benchmarks`, `Apple Silicon CUDA compatibility`].slice(0, 2));
+      groups.push([`Reddit YouTube ${hint} experience`, `setup friction community`].slice(0, 2));
+    }
   } else {
-    // Official and benchmark
-    groups.push([`${hint} model catalog`, `language models benchmark`].slice(0, 2));
-    groups.push([`vLLM MLX DGX Spark technical docs`, `distributed runtime compatibility`].slice(0, 2));
-    groups.push([`benchmark MTEB HELM performance`].slice(0, 1));
+    // Official and benchmark — but if hint is price, still include hardware pricing
+    if (isPrice) {
+      groups.push([`${hint} GPU pricing India`, `MD Computers Vedant ${hint.split(" ").slice(0,2).join(" ")}`].slice(0, 2));
+      groups.push([`${hint} compatibility VRAM quantization`, `vLLM MLX DGX Spark docs`].slice(0, 2));
+      groups.push([`benchmark pricing methodology India`].slice(0, 1));
+    } else if (isModel) {
+      groups.push([`${hint} model catalog`, `${hint} benchmark MTEB HELM`].slice(0, 2));
+      groups.push([`vLLM MLX DGX Spark technical docs`, `${hint} compatibility`].slice(0, 2));
+      groups.push([`YouTube ${hint} review`].slice(0, 1));
+    } else {
+      groups.push([`${hint} model catalog`, `language models benchmark`].slice(0, 2));
+      groups.push([`vLLM MLX DGX Spark technical docs`, `distributed runtime compatibility`].slice(0, 2));
+      groups.push([`benchmark MTEB HELM performance`].slice(0, 1));
+    }
   }
-  // Enforce ≤3 groups, each ≤8 results (but query strings per group ≤8? We keep 1-3 queries per group, results limited later)
+  // Also append complementary group if we have room and hint mixes intents
+  if (groups.length < 3 && (isPrice && isModel)) {
+    groups.push([`${hint} cost comparison India`].slice(0,1));
+  }
   return groups.slice(0, BUDGET.maxQueryGroups).map(g => g.slice(0, BUDGET.maxPerGroup));
 }
 
@@ -255,6 +283,64 @@ async function fetchTechnicalClaims(signal?: AbortSignal): Promise<Claim[]> {
   return claims;
 }
 
+async function fetchPriceClaims(queryHint: string, scope: Scope, signal?: AbortSignal): Promise<Claim[]> {
+  // Generate price claims for ANY GPU/hardware query — uses live marketplace listings (curated fallback covers RTX 5060/5070/5080 etc)
+  // This handles narrow-notes problem: RTX 5060 now has dedicated listings, but also fuzzy-matches any GPU string.
+  const q = queryHint.trim().slice(0, 100);
+  const lower = q.toLowerCase();
+  const isPriceQuery = /(price|pricing|cost|rtx|gtx|rx\s?\d|arc\s?a\d|gpu|hardware|h100|a100|b200|md computers|vedant|buy|purchase)/i.test(q);
+  if (!isPriceQuery) return [];
+  try {
+    const { fetchLiveMarketplace } = await import("./adapters/marketplace");
+    // Use broader query — extract GPU token if present
+    const gpuMatch = q.match(/(rtx\s?\d{3,4}(?:\s?(?:super|ti|oc))?|gtx\s?\d{3,4}|rx\s?\d{3,4}|arc\s?a?\d{3}|h100|a100|b200)/i);
+    const gpuQuery = gpuMatch ? gpuMatch[0] : q.split(" ").slice(0, 3).join(" ");
+    const res = await fetchLiveMarketplace({ query: gpuQuery, limit: 9, demo: false });
+    const claims: Claim[] = [];
+    // Map up to 2 most relevant listings to price claims (fuzzy by product_name contains GPU token)
+    const target = gpuQuery.toLowerCase().replace(/\s+/g, "");
+    const scored = res.listings
+      .map((l) => {
+        const nameNorm = l.product_name.toLowerCase().replace(/\s+/g, "");
+        const matchScore = target ? (nameNorm.includes(target) ? 2 : nameNorm.includes(target.slice(0, 4)) ? 1 : 0) : 0;
+        const freshScore = l.freshness_status === "current" ? 1 : l.freshness_status === "aging" ? 0.5 : 0;
+        return { l, score: matchScore * 2 + freshScore };
+      })
+      .sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, 2).map((s) => s.l);
+    // If no listings matched GPU token but we have listings, keep one generic India aggregate claim
+    const toConvert = top.length > 0 ? top : res.listings.slice(0, 1);
+    for (const l of toConvert) {
+      const landed = l.landed_total ? `Landed ₹${l.landed_total.toLocaleString()} (item ₹${l.item_price.toLocaleString()} + ship ₹${l.shipping_cost} + GST ₹${l.tax_cost.toLocaleString()}${l.import_duty ? ` + duty ₹${l.import_duty}` : ""}${l.brokerage_cost ? ` + brokerage ₹${l.brokerage_cost}` : ""})` : `Price varies`;
+      claims.push({
+        claim_text: `${l.product_name} at ${l.marketplace} — ${landed} ex-verification; ${l.warranty_summary}. ${l.user_verification_required ? "Verify price/warranty at checkout." : ""}`.slice(0, 500),
+        claim_type: "price",
+        source_url: l.product_url,
+        source_title: `${l.marketplace} — ${l.product_name}`,
+        source_tier: "official_page",
+        publisher_or_author: l.marketplace,
+        published_at: null,
+        retrieved_at: l.last_checked_at,
+        quoted_or_extracted_evidence: `${l.product_name} — item ₹${l.item_price.toLocaleString()}, landed ₹${l.landed_total.toLocaleString()}, ${l.warranty_summary}`.slice(0, 350),
+        confidence: l.freshness_status === "current" ? 0.78 : 0.65,
+        corroboration_count: 1,
+        conflicts: [],
+        user_verification_required: true,
+        fact_type: "Fact",
+      });
+    }
+    // Always add generic India pricing methodology claim when price query (helps any GPU, even if listing missing)
+    if (claims.length < 2) {
+      const { CURATED_RESEARCH_BRIEF } = await import("../data/research-fixture");
+      const agg = CURATED_RESEARCH_BRIEF.claims.find((c) => c.source_url?.includes("category/graphics-card"));
+      if (agg) claims.push({ ...agg, retrieved_at: nowIso() });
+    }
+    return claims.slice(0, 2);
+  } catch {
+    return [];
+  }
+}
+
 // Main scout orchestrator
 export async function runResearchScout(opts: {
   scope: Scope;
@@ -309,6 +395,18 @@ export async function runResearchScout(opts: {
       budget.fetches += allowed;
       budget.browser += Math.min(2, allowed); // track browser usage inside tech (max 2)
       for (const c of tech.slice(0, allowed)) source_snapshot_ids.push(c.source_url);
+    }
+  }
+
+  // 2.5 Price claims — for ANY price/hardware query, generate price claim from marketplace listings (handles RTX 5060 vs 4090 narrow-notes fix)
+  // This is separate from technical fetches budget? Counts as 1 fetch toward BUDGET.maxFetches but is cheap (uses curated fallback if live fails)
+  if (budget.fetches < BUDGET.maxFetches) {
+    const priceClaims = await fetchPriceClaims(queryHint, scope, opts.signal);
+    if (priceClaims.length > 0) {
+      claims.push(...priceClaims);
+      for (const c of priceClaims) source_snapshot_ids.push(c.source_url);
+      budget.fetches += 1;
+      console.info(`[scout] priceClaims=${priceClaims.length} for query="${queryHint.slice(0,60)}"`);
     }
   }
 

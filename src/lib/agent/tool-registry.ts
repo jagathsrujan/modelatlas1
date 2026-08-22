@@ -58,7 +58,9 @@ export type ToolName =
   | "rank_options"
   | "draft_implementation_plan"
   | "save_decision_brief"
-  | "prepare_team_share";
+  | "prepare_team_share"
+  | "web_search"
+  | "web_fetch";
 
 export interface ToolDefinition {
   name: ToolName;
@@ -346,6 +348,42 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
       const share: Record<string, unknown> = {};
       for (const f of fields) share[f] = (wp as Record<string, unknown>)[f];
       return { workspace_id, workload_id, shared_fields: share, visibility: "private_by_default", user_must_confirm: true };
+    },
+  },
+  web_search: {
+    name: "web_search",
+    description: "Search the web for current information (prices, availability, benchmarks, compatibility). Returns cited results with title+url+snippet.",
+    argsSchema: z.object({ query: z.string().min(2).max(300), count: z.number().min(1).max(8).optional().default(6) }),
+    guard: "public sources only, no login/CAPTCHA bypass, injection stripped, budget ≤8 results",
+    execute: async (args) => {
+      const { query, count = 6 } = args as { query: string; count?: number };
+      // Use websearch module server-side; fallback to scout's public fetch hierarchy on failure
+      try {
+        const { webSearch } = await import("@/lib/sources/websearch");
+        const results = await webSearch(query, { limit: count });
+        // Strip injection already done in webSearch
+        return { query, results, count: results.length, provenance: results.length > 0 ? "web_search" : "no_results" };
+      } catch (e) {
+        console.warn("[web_search] failed", (e as Error).message);
+        return { query, results: [], count: 0, error: (e as Error).message };
+      }
+    },
+  },
+  web_fetch: {
+    name: "web_fetch",
+    description: "Fetch a public URL and extract text for price/spec verification. Returns title+content+snippet with provenance.",
+    argsSchema: z.object({ url: z.string().url(), maxChars: z.number().min(500).max(8000).optional().default(6000) }),
+    guard: "public fetch only, no login/paywall bypass, respects block signals, injection stripped",
+    execute: async (args) => {
+      const { url, maxChars = 6000 } = args as { url: string; maxChars?: number };
+      try {
+        const { webFetch } = await import("@/lib/sources/websearch");
+        const result = await webFetch(url, { maxChars });
+        if (!result) return { url, error: "Fetch blocked or insufficient content", fetched: false };
+        return { url, title: result.title, snippet: result.snippet, content: result.content.slice(0, maxChars), fetchedAt: result.fetchedAt, fetched: true };
+      } catch (e) {
+        return { url, error: (e as Error).message, fetched: false };
+      }
     },
   },
 };

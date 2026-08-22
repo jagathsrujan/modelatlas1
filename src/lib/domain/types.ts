@@ -357,6 +357,35 @@ export const ImplementationPlanSchema = z.object({
 });
 export type ImplementationPlan = z.infer<typeof ImplementationPlanSchema>;
 
+// ── Chat (AI Chatbot) ───────────────────────────────────────────────────
+export const ChatRoleSchema = z.enum(["user","assistant","system"]);
+export type ChatRole = z.infer<typeof ChatRoleSchema>;
+
+export const ChatMessageSchema = z.object({
+  id: z.string(),
+  thread_id: z.string(),
+  role: ChatRoleSchema,
+  content: z.string(),
+  tool_name: z.string().nullable().optional(),
+  citations: z.array(ClaimSchema).nullable().optional(),
+  confidence: z.number().min(0).max(1).nullable().optional(),
+  model_provider: z.string().nullable().optional(),
+  created_at: z.string(),
+});
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+export const ChatThreadSchema = z.object({
+  id: z.string(),
+  owner_id: z.string().nullable().optional(),
+  workspace_id: z.string().nullable().optional(),
+  title: z.string().default("New chat"),
+  created_at: z.string(),
+  updated_at: z.string(),
+  // hydrated for client
+  messages: z.array(ChatMessageSchema).optional(),
+});
+export type ChatThread = z.infer<typeof ChatThreadSchema>;
+
 // helper for freshness labeling
 export const PRIVACY_ORDER: Record<PrivacyClassification, number> = {
   public: 0,

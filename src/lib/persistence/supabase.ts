@@ -2,7 +2,7 @@
 import { createClient as createBrowserSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import type { Repository } from "./repository";
-import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief } from "@/lib/domain/types";
+import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief, ChatThread, ChatMessage } from "@/lib/domain/types";
 
 // Helper to get supabase client (browser-safe, falls back to placeholder if env missing)
 function getSupabase() {
@@ -302,5 +302,47 @@ export class SupabaseRepository implements Repository {
       conflicts: row.conflicts || [],
       status: row.status,
     } as ResearchBrief));
+  }
+
+  // Chat
+  async createThread(opts?: { workspaceId?: string; title?: string }): Promise<ChatThread> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    const payload: any = { owner_id: user?.id ?? null, workspace_id: opts?.workspaceId ?? null, title: opts?.title ?? "New chat" };
+    const { data, error } = await (this.supabase as any).from("chat_threads").insert(payload).select().single();
+    if (error) throw error;
+    return { id: (data as any).id, owner_id: (data as any).owner_id, workspace_id: (data as any).workspace_id, title: (data as any).title, created_at: (data as any).created_at, updated_at: (data as any).updated_at } as ChatThread;
+  }
+  async getThread(id: string): Promise<ChatThread | null> {
+    const { data, error } = await (this.supabase as any).from("chat_threads").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return { id: (data as any).id, owner_id: (data as any).owner_id, workspace_id: (data as any).workspace_id, title: (data as any).title, created_at: (data as any).created_at, updated_at: (data as any).updated_at } as ChatThread;
+  }
+  async listThreads(opts?: { workspaceId?: string }): Promise<ChatThread[]> {
+    let q = (this.supabase as any).from("chat_threads").select("*").order("updated_at", { ascending: false }).limit(20);
+    if (opts?.workspaceId) q = q.eq("workspace_id", opts.workspaceId);
+    const { data, error } = await q;
+    if (error || !data) return [];
+    return (data as any[]).map((r:any)=> ({ id:r.id, owner_id:r.owner_id, workspace_id:r.workspace_id, title:r.title, created_at:r.created_at, updated_at:r.updated_at } as ChatThread));
+  }
+  async saveMessage(threadId: string, msg: Omit<ChatMessage, "id" | "thread_id" | "created_at"> & { id?: string }): Promise<ChatMessage> {
+    const payload: any = { thread_id: threadId, role: msg.role, content: msg.content, tool_name: msg.tool_name ?? null, citations: msg.citations ?? null, confidence: msg.confidence ?? null, model_provider: msg.model_provider ?? null };
+    const { data, error } = await (this.supabase as any).from("chat_messages").insert(payload).select().single();
+    if (error) throw error;
+    // bump thread title if first user message
+    if (msg.role==="user") {
+      const { data: existing } = await (this.supabase as any).from("chat_messages").select("id").eq("thread_id", threadId).eq("role","user").limit(2);
+      if (existing && existing.length===1) {
+        await (this.supabase as any).from("chat_threads").update({ title: msg.content.slice(0,48) }).eq("id", threadId);
+      }
+    }
+    return { id: (data as any).id, thread_id: (data as any).thread_id, role: (data as any).role, content: (data as any).content, tool_name: (data as any).tool_name, citations: (data as any).citations, confidence: (data as any).confidence, model_provider: (data as any).model_provider, created_at: (data as any).created_at } as ChatMessage;
+  }
+  async listMessages(threadId: string): Promise<ChatMessage[]> {
+    const { data, error } = await (this.supabase as any).from("chat_messages").select("*").eq("thread_id", threadId).order("created_at", { ascending: true }).limit(50);
+    if (error || !data) return [];
+    return (data as any[]).map((r:any)=> ({ id:r.id, thread_id:r.thread_id, role:r.role, content:r.content, tool_name:r.tool_name, citations:r.citations, confidence:r.confidence, model_provider:r.model_provider, created_at:r.created_at } as ChatMessage));
+  }
+  async deleteThread(id: string): Promise<void> {
+    await (this.supabase as any).from("chat_threads").delete().eq("id", id);
   }
 }
