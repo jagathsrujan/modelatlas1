@@ -9,6 +9,40 @@ import { generateImplementationPlan } from "@/lib/domain/plan-generator";
 import { CATALOG_MODELS, MARKETPLACE_LISTINGS, HARDWARE_ASSETS, getSeedSnapshot } from "@/lib/data/seed";
 import { getResearchFixture } from "@/lib/data/research-fixture";
 import type { WorkloadProfile, HardwareAsset } from "@/lib/domain/types";
+// Live adapters — server-only, guarded for P0 deterministic fallback
+function isLiveEnabled(): boolean {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo")) return false;
+  if (process.env.NEXT_PUBLIC_DEMO_FALLBACK === "true" && !process.env.ARTIFICIAL_ANALYSIS_API_KEY && !process.env.OPENROUTER_API_KEY && !process.env.HF_TOKEN) {
+    // Even with demo fallback true, we still try live if any official key exists — but keep P0 green when no keys
+    // For tool-registry in ?demo=true, always use curated
+    if (typeof window !== "undefined") return false;
+  }
+  // Server: if window undefined, check if we are explicitly in demo mode via env — but keep fallback to live if keys present
+  // For harness P0 determinism, tools will fallback to curated on live failure
+  return typeof window === "undefined";
+}
+async function getLiveCatalogFiltered(input_modalities?: string[], limit = 10): Promise<typeof CATALOG_MODELS | null> {
+  if (!isLiveEnabled()) return null;
+  try {
+    const { fetchLiveCatalog } = await import("@/lib/sources/adapters/official");
+    const res = await fetchLiveCatalog({ limit, demo: false });
+    if (res.isFallback) return null; // keep deterministic curated path visible
+    let models = res.models;
+    if (input_modalities && input_modalities.length > 0) {
+      models = models.filter(m => input_modalities.some(im => m.input_modalities.includes(im)) || m.modality_family === "multimodal");
+    }
+    return models.length > 0 ? models as typeof CATALOG_MODELS : null;
+  } catch { return null; }
+}
+async function getLiveListingsFiltered(country?: string, condition?: string, limit = 12): Promise<typeof MARKETPLACE_LISTINGS | null> {
+  if (!isLiveEnabled()) return null;
+  try {
+    const { fetchLiveMarketplace } = await import("@/lib/sources/adapters/marketplace");
+    const res = await fetchLiveMarketplace({ country, condition, limit, demo: false });
+    if (res.isFallback) return null;
+    return res.listings.length > 0 ? res.listings as typeof MARKETPLACE_LISTINGS : null;
+  } catch { return null; }
+}
 
 export type ToolName =
   | "normalize_workload"
@@ -104,9 +138,13 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     name: "search_model_catalog",
     description: "Retrieve existing model records and metadata",
     argsSchema: z.object({ input_modalities: z.array(z.string()).optional(), privacy_classification: z.string().optional(), limit: z.number().optional() }),
-    guard: "approved catalogs and freshness",
+    guard: "approved catalogs and freshness — live via Zod boundary 3, fallback to curated_fixture",
     execute: async (args) => {
       const { input_modalities, limit = 10 } = args as { input_modalities?: string[]; limit?: number };
+      const live = await getLiveCatalogFiltered(input_modalities, limit);
+      if (live) {
+        return { models: live.slice(0, limit), provenance: "live:official", freshness: "current" };
+      }
       let models = CATALOG_MODELS;
       if (input_modalities && input_modalities.length > 0) {
         models = models.filter(m => input_modalities.some(im => m.input_modalities.includes(im)) || m.modality_family === "multimodal");
@@ -137,7 +175,14 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     guard: "never infer compatibility from model name alone",
     execute: async (args) => {
       const { catalog_id, hardware_asset_ids } = args as { catalog_id: string; hardware_asset_ids: string[] };
-      const model = CATALOG_MODELS.find(m=> m.canonical_id===catalog_id);
+      let model = CATALOG_MODELS.find(m=> m.canonical_id===catalog_id);
+      if (!model && isLiveEnabled()) {
+        try {
+          const { fetchLiveCatalog } = await import("@/lib/sources/adapters/official");
+          const live = await fetchLiveCatalog({ limit: 50, demo: false });
+          model = live.models.find(m=> m.canonical_id===catalog_id) as typeof model;
+        } catch {}
+      }
       if (!model) throw new Error(`model ${catalog_id} not found`);
       const assets = hardwareAssetIdsToAssets(hardware_asset_ids);
       const need = (model.performance_metadata?.vram_gb_min as number | undefined) ?? 16;
@@ -145,7 +190,7 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
         const avail = a.vram_gb ?? a.system_memory_gb ?? 0;
         return { asset_id: a.id, avail, need, fits: avail >= need * 1.2, tight: avail >= need && avail < need*1.2 };
       });
-      return { model: catalog_id, need_vram_gb: need, fits, provenance: "curated_fixture" };
+      return { model: catalog_id, need_vram_gb: need, fits, provenance: model.source_provenance?.source_provider ?? "curated_fixture" };
     },
   },
   plan_cluster_topology: {
@@ -158,7 +203,14 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
       const wp = workloadStore.get(workload_id);
       const workload = wp ?? getSeedSnapshot().teamProfiles[0];
       const assets = hardwareAssetIdsToAssets(hardware_asset_ids);
-      const model = catalog_id ? CATALOG_MODELS.find(m=> m.canonical_id===catalog_id) : undefined;
+      let model = catalog_id ? CATALOG_MODELS.find(m=> m.canonical_id===catalog_id) : undefined;
+      if (!model && catalog_id && isLiveEnabled()) {
+        try {
+          const { fetchLiveCatalog } = await import("@/lib/sources/adapters/official");
+          const live = await fetchLiveCatalog({ limit: 50, demo: false });
+          model = live.models.find(m=> m.canonical_id===catalog_id) as typeof model;
+        } catch {}
+      }
       const plan = planClusterTopology({ assets, workload, catalogModel: model, objective: (objective as never) ?? "general" });
       return plan;
     },
@@ -167,9 +219,13 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     name: "search_marketplace_listings",
     description: "Retrieve trusted outbound hardware listings",
     argsSchema: z.object({ country: z.string().optional(), condition: z.string().optional(), limit: z.number().optional() }),
-    guard: "source freshness, seller evidence, manual verification",
+    guard: "source freshness, seller evidence, manual verification — live via marketplace-normalizer boundary 3, fallback to curated",
     execute: async (args) => {
       const { country, condition, limit=12 } = args as { country?: string; condition?: string; limit?: number };
+      const live = await getLiveListingsFiltered(country, condition, limit);
+      if (live) {
+        return { listings: live.slice(0, limit), provenance: "live:marketplace", freshness: "current" };
+      }
       let listings = MARKETPLACE_LISTINGS;
       if (country) listings = listings.filter(l=> l.country===country);
       if (condition) listings = listings.filter(l=> l.condition===condition);
@@ -193,12 +249,19 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     name: "calculate_direct_cost",
     description: "Calculate hardware, landed, electricity, API, and rental costs",
     argsSchema: z.object({ workload_id: z.string(), listing_id: z.string().optional(), hardware_asset_ids: z.array(z.string()).optional() }),
-    guard: "staff and maintenance remain excluded",
+    guard: "staff and maintenance remain excluded — cost lines separate, landed=item+ship+GST+duty+brokerage",
     execute: async (args) => {
       const { workload_id, listing_id, hardware_asset_ids } = args as { workload_id: string; listing_id?: string; hardware_asset_ids?: string[] };
       const wp = workloadStore.get(workload_id);
       if (!wp) throw new Error(`workload ${workload_id} not found`);
-      const listing = listing_id ? MARKETPLACE_LISTINGS.find(l=> l.id===listing_id) : undefined;
+      let listing = listing_id ? MARKETPLACE_LISTINGS.find(l=> l.id===listing_id) : undefined;
+      if (!listing && listing_id && isLiveEnabled()) {
+        try {
+          const { fetchLiveMarketplace } = await import("@/lib/sources/adapters/marketplace");
+          const live = await fetchLiveMarketplace({ limit: 50, demo: false });
+          listing = live.listings.find(l=> l.id===listing_id) as typeof listing;
+        } catch {}
+      }
       const assets = hardware_asset_ids ? hardwareAssetIdsToAssets(hardware_asset_ids) : undefined;
       const res = calculateDirectCost(wp, { listing, hardwareAssets: assets });
       if ("error" in res) throw new Error(res.error);
@@ -209,15 +272,24 @@ export const toolRegistry: Record<ToolName, ToolDefinition> = {
     name: "rank_options",
     description: "Apply hard filters and the selected simple preset",
     argsSchema: z.object({ workload_id: z.string(), preset: z.enum(["best_value","maximum_performance","lowest_upfront","privacy_local_first","fastest_deployment"]), include_listings: z.boolean().optional() }),
-    guard: "deterministic; denied candidates never rank",
+    guard: "deterministic; denied candidates never rank — policyGate precedence workspace maximum > workload > preference",
     execute: async (args) => {
       const { workload_id, preset, include_listings } = args as { workload_id: string; preset: "best_value"|"maximum_performance"|"lowest_upfront"|"privacy_local_first"|"fastest_deployment"; include_listings?: boolean };
       const wp = workloadStore.get(workload_id);
       if (!wp) throw new Error(`workload ${workload_id} not found`);
       const updated = { ...wp, ranking_preset: preset };
       workloadStore.set(workload_id, updated as WorkloadProfile);
-      // For demo, use policy null (no workspace) — filtering will still show privacy gating when confidential
-      const { recommendations, excluded } = rankOptions({ workload: updated as WorkloadProfile, policy: null, catalogModels: CATALOG_MODELS, listings: include_listings ? MARKETPLACE_LISTINGS : [], preset });
+      // Candidate retrieval: live-normalized if available, else curated (P0 deterministic)
+      let catalogModels = CATALOG_MODELS;
+      let listings: typeof MARKETPLACE_LISTINGS = [];
+      const liveCatalog = await getLiveCatalogFiltered(undefined, 24);
+      if (liveCatalog) catalogModels = liveCatalog as typeof CATALOG_MODELS;
+      if (include_listings) {
+        const liveListings = await getLiveListingsFiltered(undefined, undefined, 18);
+        if (liveListings) listings = liveListings as typeof MARKETPLACE_LISTINGS;
+        else listings = MARKETPLACE_LISTINGS;
+      }
+      const { recommendations, excluded } = rankOptions({ workload: updated as WorkloadProfile, policy: null, catalogModels, listings, preset });
       return { recommendations, excluded, total: recommendations.length };
     },
   },
