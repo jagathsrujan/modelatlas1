@@ -248,7 +248,7 @@ function ExploreNewPageInner() {
                 </div>
                 <div className={`mt-3 flex h-10 items-center gap-1 overflow-hidden rounded-xl border bg-white px-3 ${recording ? "opacity-100" : "opacity-60"}`}>
                   {Array.from({ length: 28 }).map((_, i) => (
-                    <span key={i} className={`flex-1 rounded-full bg-zinc-900 ${recording ? "animate-pulse" : ""}`} style={{ height: `${recording ? 12 + Math.random() * 20 : 8}px` }} />
+                    <span key={i} className={`flex-1 rounded-full bg-zinc-900 ${recording ? "animate-pulse" : ""}`} style={{ height: `${recording ? 12 + ((i * 7) % 20) : 8}px` }} />
                   ))}
                   <span className="ml-2 text-xs text-zinc-500">{recording ? "● live" : "idle"}</span>
                 </div>

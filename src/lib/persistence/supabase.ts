@@ -1,45 +1,306 @@
-// P1 stub — Supabase Auth/Postgres/Storage with RLS
-// In P0 this is not used; interface is implemented by local-repository.
-// TODO P1: Implement Repository backed by Supabase
-// Schema sketch:
-// - workspaces(id, name, created_at)
-// - workspace_members(workspace_id, user_id, role)  -- RLS: user can read if member
-// - workload_profiles(...) -- RLS: owner_id = auth.uid() OR workspace membership
-// - decision_sessions(...) -- RLS: owner check
-// - hardware_assets(...) -- RLS: workspace/member check, private storage bucket for source_documents
-// - recommendations(...) -- RLS: session owner
-// - implementation_plans(...) -- RLS: workspace member
-// - research_briefs(...) -- RLS: creator check
-// Private Storage bucket: hardware-evidence (authenticated, RLS: path prefix user_id or workspace)
-// Audio: deleted after transcription by default unless opt-in (store retention flag)
-// Keep role/workspace auth in DB tables, not editable profile metadata. Log source + corrections.
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { createClient as createBrowserSupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 import type { Repository } from "./repository";
-// placeholder to avoid broken imports
+import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief } from "@/lib/domain/types";
+
+// Helper to get supabase client (browser-safe, falls back to placeholder if env missing)
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) throw new Error("Supabase env not configured");
+  return createBrowserSupabaseClient<Database>(url, anonKey);
+}
+
 export class SupabaseRepository implements Repository {
-  constructor(private _config: { url: string; anonKey: string; serviceRole?: string }) {}
-  async saveWorkload(): Promise<never> { throw new Error("Supabase P1 not wired — use LocalRepository in P0"); }
-  async getWorkload(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listWorkloads(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveSession(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getSession(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listSessions(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveTrace(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listTraces(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async savePolicy(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getPolicy(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveOpportunity(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listOpportunities(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getOpportunity(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveHardware(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getHardware(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listHardware(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveRecommendations(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getRecommendations(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async savePlan(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getPlan(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listPlans(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async saveResearch(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async getResearch(): Promise<never> { throw new Error("Supabase P1 not wired"); }
-  async listResearch(): Promise<never> { throw new Error("Supabase P1 not wired"); }
+  private supabase: ReturnType<typeof getSupabase>;
+  constructor() {
+    this.supabase = getSupabase();
+  }
+
+  // Workload
+  async saveWorkload(p: WorkloadProfile): Promise<WorkloadProfile> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    const owner_id = (p as any).owner_id || user?.id || null;
+    const workspace_id = (p as any).workspace_id || null;
+    const { error } = await this.supabase.from("workload_profiles").upsert({
+      id: p.id,
+      owner_id,
+      workspace_id,
+      data: p as any,
+    } as any);
+    if (error) throw error;
+    return p;
+  }
+  async getWorkload(id: string): Promise<WorkloadProfile | null> {
+    const { data, error } = await this.supabase.from("workload_profiles").select("data").eq("id", id).single();
+    if (error || !data) return null;
+    return (data as any).data as WorkloadProfile;
+  }
+  async listWorkloads(): Promise<WorkloadProfile[]> {
+    const { data, error } = await this.supabase.from("workload_profiles").select("data");
+    if (error || !data) return [];
+    return data.map((row: any) => row.data as WorkloadProfile);
+  }
+
+  // Session
+  async saveSession(s: DecisionSession): Promise<DecisionSession> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    const owner_id = (s as any).owner_id || user?.id || null;
+    const { error } = await this.supabase.from("decision_sessions").upsert({
+      id: s.id,
+      owner_id,
+      workspace_id: (s as any).workspace_id || null,
+      mode: (s as any).mode || null,
+      status: s.status,
+      confirmed_profile_version: (s as any).confirmed_profile_version || null,
+      privacy_classification: (s as any).privacy_classification || null,
+      selected_preset: (s as any).selected_preset || null,
+      step_count: (s as any).step_count || 0,
+      started_at: (s as any).started_at || null,
+      completed_at: (s as any).completed_at || null,
+    } as any);
+    if (error) throw error;
+    return s;
+  }
+  async getSession(id: string): Promise<DecisionSession | null> {
+    const { data, error } = await this.supabase.from("decision_sessions").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    // Reconstruct DecisionSession from row
+    return {
+      id: (data as any).id,
+      mode: (data as any).mode,
+      status: (data as any).status,
+      confirmed_profile_version: (data as any).confirmed_profile_version,
+      privacy_classification: (data as any).privacy_classification,
+      selected_preset: (data as any).selected_preset,
+      step_count: (data as any).step_count,
+      started_at: (data as any).started_at,
+      completed_at: (data as any).completed_at,
+    } as unknown as DecisionSession;
+  }
+  async listSessions(): Promise<DecisionSession[]> {
+    const { data, error } = await this.supabase.from("decision_sessions").select("*");
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      id: row.id,
+      mode: row.mode,
+      status: row.status,
+      confirmed_profile_version: row.confirmed_profile_version,
+      privacy_classification: row.privacy_classification,
+      selected_preset: row.selected_preset,
+      step_count: row.step_count,
+      started_at: row.started_at,
+      completed_at: row.completed_at,
+    } as unknown as DecisionSession));
+  }
+
+  // Trace
+  async saveTrace(t: AgentTrace): Promise<void> {
+    const { error } = await this.supabase.from("agent_traces").insert({
+      session_id: t.session_id,
+      step_index: t.step_index,
+      model_provider: (t as any).model_provider || null,
+      action_type: t.action_type,
+      tool_name: (t as any).tool_name || null,
+      validated_arguments: (t as any).validated_arguments || null,
+      result_reference: (t as any).result_reference || null,
+      latency_ms: (t as any).latency_ms || null,
+    } as any);
+    if (error) throw error;
+  }
+  async listTraces(sessionId: string): Promise<AgentTrace[]> {
+    const { data, error } = await this.supabase.from("agent_traces").select("*").eq("session_id", sessionId).order("step_index");
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      session_id: row.session_id,
+      step_index: row.step_index,
+      model_provider: row.model_provider,
+      model_id: row.model_provider,
+      action_type: row.action_type,
+      tool_name: row.tool_name,
+      validated_arguments: row.validated_arguments,
+      result_reference: row.result_reference,
+      latency_ms: row.latency_ms,
+      token_or_usage_metadata: null,
+      error_code: null,
+      created_at: row.created_at,
+    } as AgentTrace));
+  }
+
+  // Policy
+  async savePolicy(p: WorkspacePolicy): Promise<WorkspacePolicy> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    const { error } = await this.supabase.from("workspace_policies").upsert({
+      workspace_id: p.workspace_id,
+      data: p as any,
+      updated_by: user?.id || null,
+      updated_at: new Date().toISOString(),
+    } as any);
+    if (error) throw error;
+    return p;
+  }
+  async getPolicy(workspaceId: string): Promise<WorkspacePolicy | null> {
+    const { data, error } = await this.supabase.from("workspace_policies").select("data").eq("workspace_id", workspaceId).single();
+    if (error || !data) return null;
+    return (data as any).data as WorkspacePolicy;
+  }
+
+  // Opportunities
+  async saveOpportunity(o: TeamOpportunity): Promise<TeamOpportunity> {
+    const id = (o as any).id || `opp-${Date.now().toString(36)}`;
+    const withId = { ...o, id };
+    const { error } = await this.supabase.from("team_opportunities").upsert({
+      id,
+      workspace_id: o.workspace_id,
+      data: withId as any,
+    } as any);
+    if (error) throw error;
+    return withId;
+  }
+  async listOpportunities(workspaceId: string): Promise<TeamOpportunity[]> {
+    const { data, error } = await this.supabase.from("team_opportunities").select("data").eq("workspace_id", workspaceId);
+    if (error || !data) return [];
+    return data.map((row: any) => row.data as TeamOpportunity);
+  }
+  async getOpportunity(id: string): Promise<TeamOpportunity | null> {
+    const { data, error } = await this.supabase.from("team_opportunities").select("data").eq("id", id).single();
+    if (error || !data) return null;
+    return (data as any).data as TeamOpportunity;
+  }
+
+  // Hardware
+  async saveHardware(h: HardwareAsset): Promise<HardwareAsset> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    const owner_id = (h as any).owner_id || user?.id || null;
+    const workspace_id = (h as any).workspace_id || null;
+    const { error } = await this.supabase.from("hardware_assets").upsert({
+      id: h.id,
+      owner_id,
+      workspace_id,
+      data: h as any,
+      source_documents: (h as any).source_documents || [],
+      extraction_confidence: (h as any).extraction_confidence || {},
+      user_confirmed: h.user_confirmed,
+      last_verified_at: (h as any).last_verified_at || null,
+    } as any);
+    if (error) throw error;
+    return h;
+  }
+  async getHardware(id: string): Promise<HardwareAsset | null> {
+    const { data, error } = await this.supabase.from("hardware_assets").select("data").eq("id", id).single();
+    if (error || !data) return null;
+    return (data as any).data as HardwareAsset;
+  }
+  async listHardware(workspaceId?: string): Promise<HardwareAsset[]> {
+    let query = this.supabase.from("hardware_assets").select("data");
+    if (workspaceId) query = query.eq("workspace_id", workspaceId);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data.map((row: any) => row.data as HardwareAsset);
+  }
+
+  // Recommendations
+  async saveRecommendations(sessionId: string, recs: Recommendation[]): Promise<void> {
+    // Delete existing for session then insert new (simpler than upsert)
+    await this.supabase.from("recommendations").delete().eq("session_id", sessionId);
+    if (recs.length === 0) return;
+    const rows = recs.map((r) => ({
+      session_id: sessionId,
+      candidate_type: (r as any).candidate_type || null,
+      candidate_id: (r as any).candidate_id || null,
+      preset: (r as any).preset || null,
+      score_breakdown: (r as any).score_breakdown || null,
+      reasons: { for: (r as any).reasons_for, against: (r as any).reasons_against, trade_offs: (r as any).trade_offs } as any,
+      cost_breakdown: (r as any).cost_breakdown || null,
+      confidence: (r as any).confidence || null,
+      source_snapshot_ids: (r as any).source_snapshot_ids || [],
+    }));
+    const { error } = await this.supabase.from("recommendations").insert(rows as any);
+    if (error) throw error;
+  }
+  async getRecommendations(sessionId: string): Promise<Recommendation[]> {
+    const { data, error } = await this.supabase.from("recommendations").select("*").eq("session_id", sessionId);
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      candidate_type: row.candidate_type,
+      candidate_id: row.candidate_id,
+      preset: row.preset,
+      score_breakdown: row.score_breakdown || {},
+      reasons_for: (row.reasons as any)?.for || [],
+      reasons_against: (row.reasons as any)?.against || [],
+      trade_offs: (row.reasons as any)?.trade_offs || [],
+      cost_breakdown: row.cost_breakdown || {},
+      confidence: row.confidence ?? 0.8,
+      source_snapshot_ids: row.source_snapshot_ids || [],
+    } as unknown as Recommendation));
+  }
+
+  // Plans
+  async savePlan(p: ImplementationPlan): Promise<ImplementationPlan> {
+    const { error } = await this.supabase.from("implementation_plans").upsert({
+      id: p.id,
+      workspace_id: (p as any).workspace_id || null,
+      data: p as any,
+      approval_status: (p as any).approval_status || null,
+    } as any);
+    if (error) throw error;
+    return p;
+  }
+  async getPlan(id: string): Promise<ImplementationPlan | null> {
+    const { data, error } = await this.supabase.from("implementation_plans").select("data").eq("id", id).single();
+    if (error || !data) return null;
+    return (data as any).data as ImplementationPlan;
+  }
+  async listPlans(workspaceId?: string): Promise<ImplementationPlan[]> {
+    let query = this.supabase.from("implementation_plans").select("data");
+    if (workspaceId) query = query.eq("workspace_id", workspaceId);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data.map((row: any) => row.data as ImplementationPlan);
+  }
+
+  // Research
+  async saveResearch(r: ResearchBrief): Promise<ResearchBrief> {
+    const { error } = await this.supabase.from("research_briefs").upsert({
+      id: r.id,
+      scope: (r as any).scope || null,
+      query_groups: (r as any).query_groups || null,
+      claims: (r as any).claims || null,
+      source_snapshot_ids: (r as any).source_snapshot_ids || [],
+      checked_at: (r as any).checked_at || null,
+      conflicts: (r as any).conflicts || null,
+      status: (r as any).status || null,
+    } as any);
+    if (error) throw error;
+    return r;
+  }
+  async getResearch(id: string): Promise<ResearchBrief | null> {
+    const { data, error } = await this.supabase.from("research_briefs").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return {
+      id: (data as any).id,
+      scope: (data as any).scope,
+      query_groups: (data as any).query_groups || [],
+      claims: (data as any).claims || [],
+      source_snapshot_ids: (data as any).source_snapshot_ids || [],
+      checked_at: (data as any).checked_at,
+      conflicts: (data as any).conflicts || [],
+      status: (data as any).status,
+    } as ResearchBrief;
+  }
+  async listResearch(): Promise<ResearchBrief[]> {
+    const { data, error } = await this.supabase.from("research_briefs").select("*");
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      id: row.id,
+      scope: row.scope,
+      query_groups: row.query_groups || [],
+      claims: row.claims || [],
+      source_snapshot_ids: row.source_snapshot_ids || [],
+      checked_at: row.checked_at,
+      conflicts: row.conflicts || [],
+      status: row.status,
+    } as ResearchBrief));
+  }
 }
