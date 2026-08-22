@@ -194,39 +194,39 @@ NODE_PATH=./node_modules node scripts/capture.mjs  # (add your capture script)
 
 ```mermaid
 flowchart LR
-    U[User browser] --> UI[Next.js UI]
-    UI --> CHAT[Chatbot — Ask ModelAtlas (floating, every route)]
-    CHAT --> SA2[POST /api/chat — Zod + Scout + citations]
-    UI --> IN[Intake and confirmation]
-    IN --> SA[Server Action / Route Handler]
-    SA --> V[Boundary validation]
-    V --> AG[Decision Copilot / bounded orchestrator]
+    U["User browser"] --> UI["Next.js UI"]
+    UI --> CHAT["Chatbot — Ask ModelAtlas (floating, every route)"]
+    CHAT --> SA2["POST /api/chat — Zod + Scout + citations"]
+    UI --> IN["Intake and confirmation"]
+    IN --> SA["Server Action / Route Handler"]
+    SA --> V["Boundary validation"]
+    V --> AG["Decision Copilot / bounded orchestrator"]
     CHAT -.-> AG
     SA2 -.-> AG
-    AG --> DOM[Domain services]
+    AG --> DOM["Domain services"]
 
-    DOM --> PR[Privacy policy gate]
-    DOM --> WE[Workload normalizer]
-    DOM --> HW[Hardware profile service]
-    DOM --> CAT[Catalog normalizer]
-    DOM --> COST[Cost calculator]
-    DOM --> CL[Cluster planner]
-    DOM --> RS[Research Scout]
-    DOM --> RANK[Preset ranking engine]
-    DOM --> PLAN[Implementation-plan generator]
+    DOM --> PR["Privacy policy gate"]
+    DOM --> WE["Workload normalizer"]
+    DOM --> HW["Hardware profile service"]
+    DOM --> CAT["Catalog normalizer"]
+    DOM --> COST["Cost calculator"]
+    DOM --> CL["Cluster planner"]
+    DOM --> RS["Research Scout"]
+    DOM --> RANK["Preset ranking engine"]
+    DOM --> PLAN["Implementation-plan generator"]
 
-    CAT --> AA[Benchmark and performance sources]
-    CAT --> OR[Model/provider catalogs]
-    CAT --> HF[Open-model catalogs]
-    HW --> OCR[Upload extraction]
-    COST --> SHOP[Marketplace adapters and web search]
-    RS --> WEB[Approved APIs, public fetch, and controlled browser]
-    IN --> STT[Self-hosted speech-to-text adapter]
+    CAT --> AA["Benchmark and performance sources"]
+    CAT --> OR["Model/provider catalogs"]
+    CAT --> HF["Open-model catalogs"]
+    HW --> OCR["Upload extraction"]
+    COST --> SHOP["Marketplace adapters and web search"]
+    RS --> WEB["Approved APIs, public fetch, and controlled browser"]
+    IN --> STT["Self-hosted speech-to-text adapter"]
 
-    DOM --> DB[(Postgres)]
-    DOM --> FS[(Object storage)]
-    DOM --> AUD[Audit and provenance]
-    DEMO[Seeded demo repository] --> UI
+    DOM --> DB[("Postgres")]
+    DOM --> FS[("Object storage")]
+    DOM --> AUD["Audit and provenance"]
+    DEMO["Seeded demo repository"] --> UI
 ```
 
 ### Data flow — recommendation request
@@ -302,19 +302,19 @@ compute_cost = hourly_rate * expected_hours
 
 ```mermaid
 flowchart TD
-    A[Choose Personal Explorer] --> B[Describe work by voice or text]
-    B --> C[Extract workload facts]
-    C --> D[Ask missing questions]
-    D --> E[User confirms profile]
-    E --> F[Suggest privacy classification]
-    F --> G[User confirms privacy and budget]
-    G --> H[Upload or describe current hardware]
-    H --> I[Extract hardware with confidence]
-    I --> J[User edits and confirms hardware]
-    J --> K[Apply hard constraints]
-    K --> L[Apply ranking preset]
-    L --> M[Show model, hosting, hardware, and procurement options]
-    M --> N[Save reusable profile]
+    A["Choose Personal Explorer"] --> B["Describe work by voice or text"]
+    B --> C["Extract workload facts"]
+    C --> D["Ask missing questions"]
+    D --> E["User confirms profile"]
+    E --> F["Suggest privacy classification"]
+    F --> G["User confirms privacy and budget"]
+    G --> H["Upload or describe current hardware"]
+    H --> I["Extract hardware with confidence"]
+    I --> J["User edits and confirms hardware"]
+    J --> K["Apply hard constraints"]
+    K --> L["Apply ranking preset"]
+    L --> M["Show model, hosting, hardware, and procurement options"]
+    M --> N["Save reusable profile"]
 ```
 
 ### Decision Copilot loop
@@ -342,14 +342,14 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Two or more confirmed machines] --> B[Compare accelerator, memory, OS, runtime, network, power, and cooling]
-    B --> C{Does one node fit the model?}
-    C -- Yes --> D[Recommend one node or replicas]
-    C -- No --> E{Is compatible sharding evidence available?}
-    E -- Yes --> F[Recommend sharded inference with assumptions]
-    E -- No --> G{Is the goal training or fine-tuning?}
-    G -- Yes --> H[Recommend distributed training only if justified]
-    G -- No --> I[Recommend a stronger node, staged pipeline, API, or rental]
+    A["Two or more confirmed machines"] --> B["Compare accelerator, memory, OS, runtime, network, power, and cooling"]
+    B --> C{"Does one node fit the model?"}
+    C -- Yes --> D["Recommend one node or replicas"]
+    C -- No --> E{"Is compatible sharding evidence available?"}
+    E -- Yes --> F["Recommend sharded inference with assumptions"]
+    E -- No --> G{"Is the goal training or fine-tuning?"}
+    G -- Yes --> H["Recommend distributed training only if justified"]
+    G -- No --> I["Recommend a stronger node, staged pipeline, API, or rental"]
 ```
 
 > **VRAM is NOT pooled.** Four mixed consumer PCs on Ethernet → replicas or a stronger single node, not a sharded model. Multiple Macs → MLX path, not CUDA/vLLM. Multiple DGX Sparks → only with ConnectX-7/QSFP + NVIDIA Sync, and the plan must list node count, power, cooling and expected benefit.
@@ -382,27 +382,27 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    U[User: text or voice] --> S[Decision session]
-    S --> O[Bounded orchestrator model]
-    O --> Q[Question planner]
-    O --> T[Typed tool registry]
+    U["User: text or voice"] --> S["Decision session"]
+    S --> O["Bounded orchestrator model"]
+    O --> Q["Question planner"]
+    O --> T["Typed tool registry"]
 
-    T --> W[Workload normalizer]
-    T --> H[Hardware extractor]
-    T --> P[Privacy and workspace policy]
-    T --> C[Catalog and benchmark search]
-    T --> R[Runtime/provider compatibility]
-    T --> K[Cluster topology planner]
-    T --> M[Marketplace and cost adapters]
-    T --> N[Deterministic ranking engine]
-    T --> I[Implementation-plan generator]
+    T --> W["Workload normalizer"]
+    T --> H["Hardware extractor"]
+    T --> P["Privacy and workspace policy"]
+    T --> C["Catalog and benchmark search"]
+    T --> R["Runtime/provider compatibility"]
+    T --> K["Cluster topology planner"]
+    T --> M["Marketplace and cost adapters"]
+    T --> N["Deterministic ranking engine"]
+    T --> I["Implementation-plan generator"]
 
-    P --> G[Policy gate]
+    P --> G["Policy gate"]
     N --> G
     I --> G
-    G --> V[Validation and explanation]
-    V --> A[User approval]
-    A --> D[(Saved decision brief)]
+    G --> V["Validation and explanation"]
+    V --> A["User approval"]
+    A --> D[("Saved decision brief")]
 ```
 
 **State machine**
@@ -448,20 +448,20 @@ Any state may enter -> FALLBACK | BLOCKED | CANCELLED
 
 ```mermaid
 flowchart LR
-    A[Decision Copilot] --> Q[Research query planner]
-    Q --> L[Source allowlist and budget]
-    L --> API[Official APIs and feeds]
-    L --> WEB[Public page fetcher]
-    L --> BROWSER[Public browser fetch for JS pages]
-    L --> COM[Community connectors]
-    API --> N[Normalize and deduplicate]
+    A["Decision Copilot"] --> Q["Research query planner"]
+    Q --> L["Source allowlist and budget"]
+    L --> API["Official APIs and feeds"]
+    L --> WEB["Public page fetcher"]
+    L --> BROWSER["Public browser fetch for JS pages"]
+    L --> COM["Community connectors"]
+    API --> N["Normalize and deduplicate"]
     WEB --> N
     BROWSER --> N
     COM --> N
-    N --> X[Claim extractor]
-    X --> C[Corroboration and freshness checks]
-    C --> R[Research brief with citations]
-    R --> P[Policy, compatibility, and ranking engine]
+    N --> X["Claim extractor"]
+    X --> C["Corroboration and freshness checks"]
+    C --> R["Research brief with citations"]
+    R --> P["Policy, compatibility, and ranking engine"]
 ```
 
 **Budget per run:** ≤3 query groups, ≤8 results/group, ≤5 fetches, ≤2 browser-rendered pages, ≤1 community set/platform. Community (X/Reddit/YouTube/forums) is **separate by design** — a social claim only affects primary ranking with corroboration from an official/benchmark/technical source; otherwise it stays under **Community signals to investigate** with source, date, conflicts and `user_verification_required`.
@@ -567,10 +567,10 @@ All pass **without login or AI key**, via `/lib/data/seed.ts` + `/lib/data/resea
 
 ```mermaid
 flowchart TB
-    Browser[Browser — display, mic, uploads, edits] --> Server[Server — validation, auth + policy, ranking, cost, provenance]
-    Server --> Auth[(Supabase Auth — Google PKCE + Magic Link + Password — JWT 1h + rotation)]
-    Server --> DB[(Postgres + Storage — RLS on every table, private buckets)]
-    Server --> External[External — untrusted until normalized + timestamped + provenanced]
+    Browser["Browser — display, mic, uploads, edits"] --> Server["Server — validation, auth + policy, ranking, cost, provenance"]
+    Server --> Auth[("Supabase Auth — Google PKCE + Magic Link + Password — JWT 1h + rotation")]
+    Server --> DB[("Postgres + Storage — RLS on every table, private buckets")]
+    Server --> External["External — untrusted until normalized + timestamped + provenanced"]
     Browser -.->|"never receives provider secrets / service-role keys"| Server
     Browser -.->|"anon key safe — RLS still enforces"| DB
     External -.->|"prompt injection ignored — evidence only"| Server
