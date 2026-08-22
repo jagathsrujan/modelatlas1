@@ -385,7 +385,37 @@ export async function runResearchScout(opts: {
     // For demo, keep existing conflicts from fixture if any
   }
 
-  // Extract checked_at, status, and ensure scope label includes hierarchy
+  // Regional anomaly: compare landed_total across IN/US/CN for same canonical_id, flag >20% drift as risk claim (P2)
+  // Only for hardware scope to avoid noise; fetch marketplace listings if needed
+  if (scope.includes("Hardware")) {
+    try {
+      const { fetchLiveMarketplace } = await import("./adapters/marketplace");
+      // Use cached marketplace if already fetched? Otherwise fetch fresh for anomaly check (respect budget: use already fetched listings if available, else fetch 6)
+      // For scout we already have not fetched marketplace yet; do a light fetch for anomaly (limit 9 to cover IN/US/CN)
+      const mForAnomaly = await fetchLiveMarketplace({ query: queryHint.split(" ").slice(0,3).join(" "), limit: 9, demo: isDemo });
+      const { addAnomalyClaimsToBrief } = await import("./regional-anomaly");
+      const before = briefClaims.length;
+      briefClaims = addAnomalyClaimsToBrief(briefClaims, mForAnomaly.listings);
+      if (briefClaims.length > before) {
+        console.info(`[scout] regional anomaly detected ${briefClaims.length - before} risk claim(s)`);
+        for (let i = before; i < briefClaims.length; i++) source_snapshot_ids.push(briefClaims[i].source_url);
+      }
+    } catch (e) {
+      console.warn("[scout] regional anomaly check failed", (e as Error).message);
+    }
+  }
+
+  // next_refresh_at by freshness (RESEARCH_SCOUT §12 P2, task 1): price 24h, compatibility 72h, benchmark on publish (null)
+  const hasPriceClaim = briefClaims.some(c => c.claim_type === "price" || c.claim_type === "availability");
+  const hasCompatClaim = briefClaims.some(c => c.claim_type === "compatibility");
+  const hasBenchmarkClaim = briefClaims.some(c => c.claim_type === "performance" || c.source_tier === "benchmark");
+  const checkedAtDate = new Date();
+  let next_refresh_at: string | null = null;
+  if (hasPriceClaim) next_refresh_at = new Date(checkedAtDate.getTime() + 24 * 3600 * 1000).toISOString();
+  else if (hasCompatClaim) next_refresh_at = new Date(checkedAtDate.getTime() + 72 * 3600 * 1000).toISOString();
+  else if (hasBenchmarkClaim) next_refresh_at = null; // on publish
+  else next_refresh_at = new Date(checkedAtDate.getTime() + 24 * 3600 * 1000).toISOString();
+
   const checked_at = nowIso();
   const status = briefClaims.some(c => c.source_tier === "curated_fixture") ? "curated" : "current";
 
@@ -395,13 +425,13 @@ export async function runResearchScout(opts: {
     query_groups: queryGroups,
     claims: briefClaims.map(c => ({
       ...c,
-      // Ensure bounded evidence already 400, source_tier preserved, fact_type correct
       quoted_or_extracted_evidence: c.quoted_or_extracted_evidence.slice(0, 400),
     })),
     source_snapshot_ids: [...new Set(source_snapshot_ids)].slice(0, 10),
     checked_at,
     conflicts: dedupedConflicts,
     status: status as any,
+    next_refresh_at,
   };
 
   // Ensure we have 1 official +1 benchmark/technical +1 community_signal when possible (for verify)

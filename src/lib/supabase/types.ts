@@ -302,6 +302,7 @@ export type Database = {
           checked_at: string | null;
           conflicts: Json | null;
           status: string | null;
+          next_refresh_at: string | null;
         };
         Insert: {
           id: string;
@@ -312,6 +313,7 @@ export type Database = {
           checked_at?: string | null;
           conflicts?: Json | null;
           status?: string | null;
+          next_refresh_at?: string | null;
         };
         Update: {
           id?: string;
@@ -322,6 +324,64 @@ export type Database = {
           checked_at?: string | null;
           conflicts?: Json | null;
           status?: string | null;
+          next_refresh_at?: string | null;
+        };
+        Relationships: [];
+      };
+      watchlist_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          canonical_id: string;
+          last_checked_at: string | null;
+          notify_on_change: boolean | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          canonical_id: string;
+          last_checked_at?: string | null;
+          notify_on_change?: boolean | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          canonical_id?: string;
+          last_checked_at?: string | null;
+          notify_on_change?: boolean | null;
+          created_at?: string | null;
+        };
+        Relationships: [];
+      };
+      team_research_collections: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          research_brief_id: string | null;
+          comment: string | null;
+          votes: number | null;
+          created_by: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          research_brief_id?: string | null;
+          comment?: string | null;
+          votes?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          workspace_id?: string;
+          research_brief_id?: string | null;
+          comment?: string | null;
+          votes?: number | null;
+          created_by?: string | null;
+          created_at?: string | null;
         };
         Relationships: [];
       };

@@ -147,8 +147,30 @@ export const ResearchBriefSchema = z.object({
   checked_at: z.string(),
   conflicts: z.array(z.string()).default([]),
   status: z.enum(["current","aging","stale","curated"]).default("current"),
+  next_refresh_at: z.string().nullable().optional(),
 });
 export type ResearchBrief = z.infer<typeof ResearchBriefSchema>;
+
+export const WatchlistItemSchema = z.object({
+  id: z.string().optional(),
+  user_id: z.string(),
+  canonical_id: z.string(),
+  last_checked_at: z.string(),
+  notify_on_change: z.boolean().default(true),
+  created_at: z.string().optional(),
+});
+export type WatchlistItem = z.infer<typeof WatchlistItemSchema>;
+
+export const TeamResearchCollectionSchema = z.object({
+  id: z.string().optional(),
+  workspace_id: z.string(),
+  research_brief_id: z.string(),
+  comment: z.string().optional(),
+  votes: z.number().default(0),
+  created_by: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+});
+export type TeamResearchCollection = z.infer<typeof TeamResearchCollectionSchema>;
 
 // ── WorkspacePolicy ──────────────────────────────────────────────────────
 export const WorkspacePolicySchema = z.object({

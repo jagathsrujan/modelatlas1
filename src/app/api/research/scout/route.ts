@@ -73,8 +73,11 @@ export async function POST(req: NextRequest) {
   // If demo, return curated fixture directly (deterministic, P0)
   if (isDemo) {
     const fixture = getResearchFixture();
-    // Ensure scope reflects requested scope for UI
-    const briefWithScope: ResearchBrief = { ...fixture, scope, checked_at: new Date().toISOString() };
+    // Ensure scope reflects requested scope for UI, and set next_refresh_at by freshness (price 24h, compat 72h, benchmark null)
+    const hasPriceDemo = fixture.claims.some(c => c.claim_type === "price" || c.claim_type === "availability");
+    const hasCompatDemo = fixture.claims.some(c => c.claim_type === "compatibility");
+    const nextRefreshDemo = hasPriceDemo ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : hasCompatDemo ? new Date(Date.now() + 72 * 3600 * 1000).toISOString() : null;
+    const briefWithScope: ResearchBrief = { ...fixture, scope, checked_at: new Date().toISOString(), next_refresh_at: nextRefreshDemo };
     // Also try to save to research_briefs if authenticated (best effort, don't block)
     if (isAuthenticated) {
       try {
@@ -88,6 +91,7 @@ export async function POST(req: NextRequest) {
           checked_at: briefWithScope.checked_at,
           conflicts: briefWithScope.conflicts as any,
           status: briefWithScope.status,
+          next_refresh_at: (briefWithScope as any).next_refresh_at,
         });
       } catch (e) {
         console.warn("[scout] demo save failed", (e as Error).message);
@@ -132,6 +136,7 @@ export async function POST(req: NextRequest) {
         checked_at: brief.checked_at,
         conflicts: brief.conflicts as any,
         status: brief.status,
+        next_refresh_at: (brief as any).next_refresh_at ?? null,
       });
       if (error) {
         saveError = error.message;

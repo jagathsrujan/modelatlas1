@@ -7,7 +7,13 @@
   <img src="https://img.shields.io/badge/Zod-validated-3E67B1" alt="Zod" />
   <img src="https://img.shields.io/badge/demo-seeded%20offline-10b981" alt="Seeded demo" />
   <img src="https://img.shields.io/badge/privacy-hard%20filter-ef4444" alt="Privacy hard filter" />
+  <img src="https://img.shields.io/badge/Supabase-RLS%203FCF8E?logo=supabase&logoColor=white" alt="Supabase RLS" />
+  <img src="https://img.shields.io/badge/live-catalog%2Bmarketplace%2Bscout-38bdf8" alt="Live scout" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT" />
+  <br/>
+  <a href="https://github.com/jagathsrujan/modelatlas1/actions/workflows/ci.yml"><img src="https://github.com/jagathsrujan/modelatlas1/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/cron-02%3A00%20IST%20watchlist-%2339b385" alt="Cron 02:00 IST" />
+  <img src="https://img.shields.io/badge/demo%2Flive-%3Fdemo%3Dtrue%20toggle-8b5cf6" alt="demo/live toggle" />
 </p>
 
 <p align="center">
@@ -497,9 +503,25 @@ npm install
 npm run dev     # http://localhost:3000/?demo=true
 npm run build   # strict type-check + production build
 npm run lint    # eslint
+# P1 final verification (must pass before merge)
+npm run build && npm run lint
+npx --yes tsx ./verify_p1_final2.ts  # AT1/AT2/AT3 + scout + RLS + demo fallback + secrets/no-child_process
+# stash OPENROUTER_API_KEY → still renders curated with fallback label: NEXT_PUBLIC_DEMO_FALLBACK=true npm run dev
 ```
 
-**CI:** GitHub Actions runs `build` + `lint` on `main`/`PRs` (see `.github/workflows/ci.yml`). No secrets needed for the seeded flow. All provider keys stay server-only.
+**CI:** GitHub Actions runs `build` + `lint` + determinism smoke on `main`/`PRs` (see `.github/workflows/ci.yml` — `supabase: RLS ON` + `Repository` fallback). No secrets needed for seeded flow. All provider keys stay server-only (`grep -R NEXT_PUBLIC_ | grep -v SUPABASE_URL/ANON` shows none containing `SERVICE_ROLE`).
+
+**Demo / Live toggle:**
+- `?demo=true` — seeded offline (15 models, 13 listings, `CURATED_RESEARCH_BRIEF`, `curated` label, no keys).
+- `?demo=false` or no `demo` + keys set — live `fetchLiveCatalog/marketplace` (Zod boundary 3, `source_provenance` + `last_checked_at`), stale `>72h` excluded, landed lines separate.
+- `NEXT_PUBLIC_DEMO_FALLBACK=true` (`.env.local`) keeps hero green when live `429/401`.
+- Check: `kill OPENROUTER_API_KEY && npm run dev` → still renders curated with `curated_fixture` banner (fallback).
+
+**Supabase (P1):** `supabase init` + `supabase start` (`http://localhost:54323`) + `supabase/migrations/001_core.sql` (RLS) + `002_p2_intelligence.sql` (`watchlist_items`, `team_research_collections`, `research_briefs.next_refresh_at` 24h price / 72h compatibility / null benchmark, `vercel.json` cron `0 2 * * *` 02:00 IST). RLS: `watchlist_items` `user_id = auth.uid()`, `team_research_collections` `workspace_members` check, `research_briefs` viewer cannot read other workspace.
+
+**P2 Intelligence (RESEARCH_SCOUT §12):** `watchlist_items` cron re-runs Scout `Official+benchmark` at 02:00 IST, diffs `last_checked_at` vs price/warranty/spec `>5%` → `WATCHLIST_WEBHOOK_URL` email/webhook; `team_research_collections` share brief + comment/votes; `next_refresh_at` by freshness; `regional-anomaly.ts` flags `>20%` drift across IN/US/CN landed (INR-converted) as `risk` claim (`confidence 0.72`).
+
+**Polish (P2):** `?step=1..7` wizard `clampStep` + `ThemeToggle` dark mode on all 9 routes, `globals.css` `overflow-x:hidden` + `min-w-0` for 390 & 1280 no horizontal overflow, `DecisionCopilotPanel` step traces (`intake` never shows “Comparing”), procurement only on step 6, Approve only on step 7 `disabled={!selected || completedUpTo<6}`.
 
 **Available routes (all with `?demo=true` support):**
 
