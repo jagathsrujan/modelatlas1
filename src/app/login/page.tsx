@@ -49,13 +49,46 @@ export default function LoginPage() {
     );
   }
 
+  // Build a robust redirect origin without hardcoding localhost.
+  // Priority: window.location.origin (dynamic per env: localhost, vercel preview, prod)
+  // Fallback: NEXT_PUBLIC_SITE_URL (explicit env) or VERCEL_URL.
+  // Validates against allowlist and warns if not whitelisted in Supabase.
+  function getSafeRedirectOrigin(): string {
+    const envUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+    const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL.replace(/^https?:\/\//, "")}`
+      : "";
+    const dynamicOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    // Prefer dynamic origin; fallback to env/VERCEL_URL; finally envUrl
+    const origin = dynamicOrigin || envUrl || vercelUrl;
+    if (!origin) return "";
+    // Allowlist check: localhost, 127.0.0.1, *.vercel.app, modelatlas1.vercel.app
+    const isAllowed =
+      origin.includes("localhost") ||
+      origin.includes("127.0.0.1") ||
+      origin.endsWith(".vercel.app") ||
+      origin === "https://modelatlas1.vercel.app";
+    if (!isAllowed) {
+      console.warn(
+        `[auth] redirect origin ${origin} not in Supabase allowlist — add ${origin}/auth/callback to Supabase Dashboard > Auth > URL Configuration > Additional Redirect URLs`
+      );
+    }
+    return origin;
+  }
+
   const handleGoogle = async () => {
     setError(null);
     setLoading(true);
+    const origin = getSafeRedirectOrigin();
+    if (!origin) {
+      setError("Unable to determine redirect origin — check NEXT_PUBLIC_SITE_URL");
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        redirectTo: `${origin}/auth/callback?next=/onboarding`,
       },
     });
     if (error) {
@@ -68,10 +101,16 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    const origin = getSafeRedirectOrigin();
+    if (!origin) {
+      setError("Unable to determine redirect origin — check NEXT_PUBLIC_SITE_URL");
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+        emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
       },
     });
     setLoading(false);

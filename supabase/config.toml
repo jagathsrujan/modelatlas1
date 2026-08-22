@@ -156,11 +156,18 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# LOCAL: http://localhost:3000 — must match `npm run dev` origin.
+# PROD (Supabase Cloud Dashboard > Auth > URL Configuration):
+#   Site URL = https://modelatlas1.vercel.app
+#   Additional Redirect URLs = https://modelatlas1.vercel.app/auth/callback, https://*.vercel.app/auth/callback, http://localhost:3000/auth/callback
+#   (Dashboard does NOT read this file for cloud; update it manually.)
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Local needs both localhost and 127.0.0.1 (Supabase local uses 127.0.0.1 by default).
+# Prod/preview needs vercel.app wildcard + explicit prod domain. Use /** wildcard where supported.
+additional_redirect_urls = ["http://localhost:3000","http://127.0.0.1:3000","https://modelatlas1.vercel.app/**","https://*.vercel.app/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

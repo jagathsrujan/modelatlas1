@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Nav } from "@/components/Nav";
+import { NavClient } from "@/components/NavClient";
 import { LogoReveal } from "@/components/LogoReveal";
 
 function LastChecked() {
@@ -51,10 +51,10 @@ const TRUST = [
   },
 ];
 
-export default function HomePage() {
+export default function HomePage({ initialUser }: { initialUser?: any | null } = {}) {
   return (
     <div className="min-h-screen bg-[#F6F4F0] dark:bg-[#0B0F14]">
-      <Nav />
+      <NavClient initialUser={initialUser} />
 
       {/* ---------- Hero: decision pitch + the brand cinema ---------- */}
       <header className="border-b border-[var(--border)]">

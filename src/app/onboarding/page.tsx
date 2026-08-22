@@ -47,6 +47,20 @@ export default function OnboardingPage() {
         router.replace("/login");
         return;
       }
+      // If user already has a workspace, redirect there — prevents dead Workspace nav.
+      try {
+        const { data: membership } = await supabase
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("user_id", user.id)
+          .limit(1);
+        if (membership && membership.length > 0) {
+          router.replace(`/workspaces/${(membership[0] as any).workspace_id}`);
+          return;
+        }
+      } catch {
+        // Non-fatal — continue to onboarding form
+      }
       setUser(user);
       // If custom name from Google, suggest workspace name
       if (user.user_metadata?.full_name) {
