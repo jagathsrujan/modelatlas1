@@ -28,6 +28,21 @@ export function ChatbotWidget({ workspaceId, workloadId }: { workspaceId?: strin
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, loading]);
 
+  // Keep the FAB above any sticky action bar so primary CTAs stay tappable
+  useEffect(() => {
+    const fab = document.querySelector("[data-fab]") as HTMLElement | null;
+    const bar = document.querySelector("[data-sticky-actions]") as HTMLElement | null;
+    if (!fab || !bar) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        fab.style.transform = entry.isIntersecting ? "translateY(-3.75rem)" : "translateY(0)";
+      },
+      { threshold: 0 }
+    );
+    io.observe(bar);
+    return () => io.disconnect();
+  }, [open]);
+
   // suggest prompts
   const suggestions = [
     "Why Privacy/Local-First?",
@@ -42,15 +57,18 @@ export function ChatbotWidget({ workspaceId, workloadId }: { workspaceId?: strin
 
   return (
     <>
-      {/* Floating FAB - above Nav z-40 and DecisionShell drawer z-50 */}
+      {/* Floating assistant — compact icon circle on mobile so it never hides primary actions */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close ModelAtlas Assistant" : "Open ModelAtlas Assistant"}
-        className="fixed bottom-4 right-4 z-[60] inline-flex items-center gap-2 rounded-full bg-[#F97316] px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300 transition"
+        data-fab
+        className="fixed bottom-4 right-4 z-[60] inline-flex items-center gap-2 rounded-full bg-[#F97316] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-900/20 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300 transition sm:px-5"
+        style={{ bottom: "max(1rem, env(safe-area-inset-bottom))", right: "max(1rem, env(safe-area-inset-right))" }}
       >
-        <span aria-hidden className="text-base">✦</span>
-        {open ? "Close assistant" : "Ask ModelAtlas"}
-        {!open && <span className="ml-1 hidden sm:inline rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">AI • Scout aware</span>}
+        <span aria-hidden className="text-base leading-none">✦</span>
+        <span className="hidden sm:inline">{open ? "Close assistant" : "Ask ModelAtlas"}</span>
+        <span className="sm:hidden" aria-hidden>{open ? "✕" : ""}</span>
+        {!open && <span className="ml-1 hidden rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium sm:inline-flex">AI · Scout aware</span>}
       </button>
 
       {/* Panel */}
@@ -58,7 +76,8 @@ export function ChatbotWidget({ workspaceId, workloadId }: { workspaceId?: strin
         <div
           role="dialog"
           aria-label="ModelAtlas Assistant — AI chatbot with Research Scout"
-          className="fixed bottom-[72px] right-4 z-[60] flex w-[92vw] max-w-[400px] flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl dark:bg-zinc-900 dark:border-zinc-800 sm:w-[400px] sm:bottom-20 sm:right-4 max-h-[72vh] sm:max-h-[520px]"
+          className="fixed inset-x-3 bottom-[4.5rem] z-[60] flex flex-col overflow-hidden rounded-2xl border bg-white shadow-2xl dark:bg-zinc-900 dark:border-zinc-800 sm:inset-x-auto sm:bottom-20 sm:right-4 sm:w-[400px] sm:max-w-[400px] max-h-[72vh] sm:max-h-[520px]"
+          style={{ bottom: "max(4.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))" }}
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b bg-zinc-50 px-4 py-3 dark:bg-zinc-800/50 dark:border-zinc-700">

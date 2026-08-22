@@ -80,12 +80,12 @@ export default function OnboardingPage() {
   if (loading) return <div className="min-h-screen grid place-items-center p-8 text-sm">Loading onboarding…</div>;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fcfcfa] dark:bg-[#09090b] px-4 py-10">
-      <div className="w-full max-w-lg rounded-2xl border bg-white dark:bg-zinc-900 p-6 sm:p-8 shadow-sm">
-        <div className="h-10 w-10 grid place-items-center rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold">MA</div>
-        <h1 className="mt-4 text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Create your workspace</h1>
-        <p className="mt-2 text-sm leading-5 text-zinc-600 dark:text-zinc-400">
-          Signed in as <span className="font-medium text-zinc-900 dark:text-white">{user?.email}</span> via {user?.app_metadata?.provider ?? "email"}.
+    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4 py-10">
+      <div className="panel w-full max-w-lg p-6 sm:p-8 shadow-sm">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#0d1319] text-white dark:bg-white dark:text-[#0d1319]"><span className="grid h-7 w-7 place-items-center"><svg viewBox="0 0 145 143" className="h-full w-full" fill="currentColor" aria-hidden><path d="M0 0 L0 143 L72.5 48.5 Z"/><path d="M145 0 L145 143 L72.5 48.5 Z"/><path d="M72.5 82.5 L55 115 L90 115 Z"/></svg></span></div>
+        <h1 className="mt-4 text-xl font-semibold tracking-tight">Create your workspace</h1>
+        <p className="mt-2 text-sm leading-5 text-[var(--muted)]">
+          Signed in as <span className="font-medium text-[var(--foreground)]">{user?.email}</span> via {user?.app_metadata?.provider ?? "email"}.
           <br />We’ll create a private-by-default workspace with RLS. You can invite Finance, Ops, Support later.
         </p>
 
@@ -101,8 +101,8 @@ export default function OnboardingPage() {
             />
           </label>
 
-          <div className="rounded-xl border bg-zinc-50 p-3 text-xs leading-5 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400">
-            <div className="font-semibold text-zinc-900 dark:text-white">What you get next</div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3 text-xs leading-5 text-[var(--muted)]">
+            <div className="font-semibold text-[var(--foreground)]">What you get next</div>
             <ul className="mt-1 list-disc pl-5">
               <li>Private workload profiles — share only what you choose</li>
               <li>Hardware inventory (photos/invoices → confidence → confirm)</li>

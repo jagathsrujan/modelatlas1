@@ -3,29 +3,48 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #F7F5F0;
-  --foreground: #17202A;
-  --brand: #17202A;
-  --brand-accent: #F97316;
+  --background: #f6f4f0;
+  --foreground: #1a1d24;
+  --brand: #17202a;
+  --brand-accent: #f97316;
   --surface: #ffffff;
-  --surface-2: #F2EFEB;
-  --border: #E7E5E4;
-  --border-strong: #D6D3CD;
-  --muted: #78716C;
-  --sidebar: #131A1F;
+  --surface-2: #f0ede8;
+  --surface-3: #e9e5df;
+  --border: #e6e2da;
+  --border-strong: #d4cfc5;
+  --muted: #6f6a61;
+  --faint: #9a948a;
+  --sidebar: #0d1319;
+  --ink-on-dark: #eef1f4;
+  --cinema-1: #050a12;
+  --cinema-2: #0a1626;
+  --glow-blue: #3b82f6;
+  --glow-cyan: #22d3ee;
+  --glow-green: #34d399;
 }
 
 .dark {
-  --background: #0F1418;
-  --foreground: #F7F5F0;
-  --brand: #F7F5F0;
-  --brand-accent: #F97316;
-  --surface: #1A2329;
-  --surface-2: #1E2A31;
-  --border: #25323A;
-  --border-strong: #2D3D47;
-  --muted: #9AA3A8;
-  --sidebar: #131A1F;
+  --background: #0b0f14;
+  --foreground: #f2f4f6;
+  --brand: #f7f5f0;
+  --brand-accent: #f97316;
+  --surface: #12181f;
+  --surface-2: #18212a;
+  --surface-3: #1f2a34;
+  --border: #232e38;
+  --border-strong: #2f3d49;
+  --muted: #97a1a9;
+  --faint: #6b757d;
+  --sidebar: #0d1319;
+  --ink-on-dark: #eef1f4;
+}
+
+
+/* FAB clearance — compact circle on mobile still needs room so last cards/CTAs stay tappable */
+@media (max-width: 640px) {
+  main, [data-workspace-main] { padding-bottom: 5.5rem; }
+  /* landing and other non-main pages: add safe bottom spacing */
+  body { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 @theme inline {
@@ -35,11 +54,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ---------- Browser surfaces ---------- */
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 *::-webkit-scrollbar { width: 6px; height: 6px; }
 *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
 
-html { color-scheme: light; overflow-x: hidden; }
+html { color-scheme: light; overflow-x: hidden; scroll-behavior: smooth; }
 html.dark { color-scheme: dark; }
 html, body { max-width: 100vw; overflow-x: hidden; }
 
@@ -54,40 +74,213 @@ body {
   max-width: 100vw;
 }
 
-/* Prevent horizontal overflow at 390 & 1280 (P2 polish) */
+::selection { background: color-mix(in srgb, var(--brand-accent) 22%, transparent); }
+.dark ::selection { background: color-mix(in srgb, var(--brand-accent) 38%, transparent); }
+* { caret-color: var(--brand-accent); }
+
+/* Prevent horizontal overflow at 390 & 1280 */
 main, nav, section, div { min-width: 0; }
 img, table, pre, code { max-width: 100%; overflow-wrap: anywhere; }
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
 /* focus ring */
-:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--brand-accent); outline-offset: 2px; border-radius: 4px; }
 
-/* subtle grid background for hero */
-.hero-grid {
-  background-image:
-    linear-gradient(to right, var(--border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 60%, transparent 110%);
-  opacity: 0.35;
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* ---------- Compositional utilities ---------- */
+/* Hairline definition row: label/value pairs without card nesting */
+.def-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--border);
 }
-.dark .hero-grid { opacity: 0.18; }
+.def-row:last-child { border-bottom: 0; }
 
-/* smooth theme transition for cards */
-.dark .shadow-sm { --tw-shadow-color: rgb(0 0 0 / 0.4); }
+/* Section heading — real weight, no eyebrow */
+.section-title {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+.section-sub {
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Understated raised surface */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+.dark .panel { box-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset; }
+
+/* Primary action shadow — offset + soft blur */
+.btn-primary {
+  background: var(--brand-accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgb(154 52 18 / 0.25), 0 8px 20px -8px rgb(249 115 22 / 0.5);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.btn-primary:hover { background: #ea6a0a; box-shadow: 0 2px 4px rgb(154 52 18 / 0.25), 0 10px 24px -8px rgb(249 115 22 / 0.55); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-primary:disabled { opacity: 0.45; box-shadow: none; }
+
+/* ---------- Cinematic brand stage ---------- */
+/* One authored moment: deep blue-black stage, electric-blue glow, focus pull, cyan/green tail. */
+.cinema {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(120% 90% at 50% 108%, color-mix(in srgb, var(--glow-blue) 16%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 50% -10%, #12233d 0%, transparent 55%),
+    linear-gradient(168deg, var(--cinema-2) 0%, var(--cinema-1) 58%, #04070c 100%);
+  isolation: isolate;
+}
+.cinema::after {
+  /* fine grain so the glow never banding-reads as a flat rectangle */
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.cinema-glow {
+  position: absolute;
+  left: 50%; top: 52%;
+  width: 62%; aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--glow-blue) 42%, transparent) 0%, color-mix(in srgb, var(--glow-blue) 12%, transparent) 42%, transparent 68%);
+  filter: blur(28px);
+  opacity: 0;
+  animation: cinemaGlow 4s cubic-bezier(0.22, 0.61, 0.21, 1) 0.05s forwards;
+  will-change: opacity, transform;
+}
+.cinema-mark {
+  opacity: 0;
+  filter: blur(8px);
+  transform: scale(1.02);
+  animation: cinemaMark 1.2s cubic-bezier(0.19, 0.66, 0.22, 1) 0.25s forwards;
+  will-change: opacity, filter, transform;
+}
+.cinema-word {
+  opacity: 0;
+  clip-path: inset(-20% 102% -20% 0);
+  filter: blur(8px);
+  animation:
+    cinemaWipe 1.4s cubic-bezier(0.33, 0.04, 0.18, 1) 0.9s forwards,
+    cinemaFocus 1.1s cubic-bezier(0.25, 0.6, 0.2, 1) 0.9s forwards;
+  will-change: clip-path, filter, opacity;
+}
+.cinema-tag {
+  opacity: 0;
+  filter: blur(4px);
+  animation: cinemaTag 1s cubic-bezier(0.25, 0.6, 0.2, 1) 1.85s forwards;
+}
+.cinema-word-fill {
+  fill: url(#cinemaWordGrad);
+}
+.cinema-sheen {
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 38%, rgb(147 197 253 / 0.08) 50%, transparent 62%);
+  transform: translateX(-70%);
+  animation: cinemaSheen 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+  pointer-events: none;
+}
+.cinema-rest-glow {
+  position: absolute;
+  left: 50%; top: 52%;
+  width: 70%; aspect-ratio: 1.4;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--glow-cyan) 16%, transparent) 0%, transparent 65%);
+  filter: blur(32px);
+  opacity: 0;
+  animation: cinemaRest 1.4s ease-out 2.2s forwards;
+  pointer-events: none;
+}
+
+@keyframes cinemaGlow {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  40% { opacity: 0.85; }
+  70% { opacity: 0.65; background: radial-gradient(circle, color-mix(in srgb, var(--glow-blue) 38%, transparent) 0%, color-mix(in srgb, var(--glow-blue) 10%, transparent) 42%, transparent 68%); }
+  100% { opacity: 0.52; transform: translate(-50%, -50%) scale(1); background: radial-gradient(circle, color-mix(in srgb, var(--glow-green) 18%, transparent) 0%, color-mix(in srgb, var(--glow-cyan) 7%, transparent) 48%, transparent 72%); }
+}
+@keyframes cinemaMark {
+  0% { opacity: 0; filter: blur(8px); transform: scale(1.02); }
+  60% { opacity: 1; }
+  100% { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+@keyframes cinemaWipe {
+  0% { opacity: 0; clip-path: inset(-20% 102% -20% 0); }
+  18% { opacity: 1; }
+  100% { opacity: 1; clip-path: inset(-20% -4% -20% 0); }
+}
+@keyframes cinemaFocus {
+  0% { filter: blur(8px); }
+  50% { filter: blur(1px); }
+  100% { filter: blur(0); }
+}
+@keyframes cinemaTag {
+  from { opacity: 0; filter: blur(6px); }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes cinemaSheen {
+  to { transform: translateX(70%); }
+}
+@keyframes cinemaRest {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Static state: skip straight to the final composed lockup (reduced motion / no-JS) */
+.cinema-static .cinema-glow { animation: none; opacity: 0.55; background: radial-gradient(circle, color-mix(in srgb, var(--glow-cyan) 24%, transparent) 0%, transparent 70%); }
+.cinema-static .cinema-mark,
+.cinema-static .cinema-word,
+.cinema-static .cinema-tag { animation: none; opacity: 1; filter: none; transform: none; clip-path: none; }
+.cinema-static .cinema-sheen,
+.cinema-static .cinema-rest-glow { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cinema-glow { animation: none; opacity: 0.55; background: radial-gradient(circle, color-mix(in srgb, var(--glow-cyan) 24%, transparent) 0%, transparent 70%); }
+  .cinema-mark, .cinema-word, .cinema-tag { animation: none; opacity: 1; filter: none; transform: none; clip-path: none; }
+  .cinema-sheen, .cinema-rest-glow { display: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* Gentle entrance for route content — already-visible default, exponential ease-out */
+.rise {
+  animation: rise 0.5s cubic-bezier(0.16, 0.84, 0.26, 1) both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+}
 
 /* ---------- Dark mode global overrides — surgical, not blanket ---------- */
-/* Page / card surfaces — preserve intentional white-on-dark buttons via .preserve-light */
 html.dark .bg-white:not(.preserve-light) { background-color: var(--surface) !important; }
 html.dark .bg-\[\#fcfcfa\]:not(.preserve-light) { background-color: var(--background) !important; }
 html.dark .bg-zinc-50:not(.preserve-light) { background-color: var(--surface-2) !important; }
-html.dark .bg-zinc-100:not(.preserve-light) { background-color: #27272a !important; }
+html.dark .bg-zinc-100:not(.preserve-light) { background-color: #1d242c !important; }
 html.dark .bg-zinc-50\/50:not(.preserve-light),
 html.dark .bg-zinc-50\/70:not(.preserve-light),
 html.dark .bg-white\/90:not(.preserve-light),
+html.dark .bg-white\/95:not(.preserve-light),
+html.dark .bg-white\/80:not(.preserve-light),
 html.dark .bg-white\/75:not(.preserve-light) { background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important; }
 
-/* Colored tints — keep hue, darken, handle opacity variants */
 html.dark .bg-amber-50:not(.preserve-light) { background-color: #1c1917 !important; }
 html.dark .bg-amber-50\/70:not(.preserve-light),
 html.dark .bg-amber-50\/50:not(.preserve-light) { background-color: color-mix(in srgb, #1c1917 85%, transparent) !important; }
@@ -96,20 +289,19 @@ html.dark .bg-emerald-50:not(.preserve-light) { background-color: #042f2e !impor
 html.dark .bg-emerald-50\/70:not(.preserve-light) { background-color: color-mix(in srgb, #042f2e 85%, transparent) !important; }
 html.dark .bg-sky-50:not(.preserve-light) { background-color: #0c2e4a !important; }
 html.dark .bg-sky-100:not(.preserve-light) { background-color: #0c3558 !important; }
+html.dark .bg-orange-50:not(.preserve-light) { background-color: #2b1503 !important; }
 
-/* Text — tint from hue, never pure gray on colored ground */
 html.dark .text-zinc-900:not(.preserve-light) { color: #fafafa !important; }
 html.dark .text-zinc-800:not(.preserve-light) { color: #e4e4e7 !important; }
 html.dark .text-zinc-700:not(.preserve-light) { color: #d4d4d8 !important; }
 html.dark .text-zinc-600:not(.preserve-light) { color: #a1a1aa !important; }
-html.dark .text-zinc-500:not(.preserve-light) { color: #71717a !important; }
+html.dark .text-zinc-500:not(.preserve-light) { color: #7d8590 !important; }
 html.dark .text-amber-900:not(.preserve-light) { color: #fde68a !important; }
 html.dark .text-amber-800:not(.preserve-light) { color: #fcd34d !important; }
 html.dark .text-emerald-800:not(.preserve-light) { color: #6ee7b7 !important; }
 html.dark .text-sky-800:not(.preserve-light) { color: #7dd3fc !important; }
 html.dark .text-sky-700:not(.preserve-light) { color: #38bdf8 !important; }
 
-/* Borders */
 html.dark .border:not(.preserve-light) { border-color: var(--border) !important; }
 html.dark .border-zinc-200:not(.preserve-light),
 html.dark .border-zinc-100:not(.preserve-light),
@@ -118,7 +310,6 @@ html.dark .border-amber-200:not(.preserve-light),
 html.dark .border-emerald-200:not(.preserve-light),
 html.dark .border-sky-200:not(.preserve-light) { border-color: var(--border) !important; }
 
-/* Inputs — exclude preserve-light */
 html.dark input:not(.preserve-light),
 html.dark textarea:not(.preserve-light),
 html.dark select:not(.preserve-light) {
@@ -127,12 +318,6 @@ html.dark select:not(.preserve-light) {
   border-color: var(--border) !important;
 }
 html.dark input:not(.preserve-light)::placeholder,
-html.dark textarea:not(.preserve-light)::placeholder { color: #71717a !important; }
+html.dark textarea:not(.preserve-light)::placeholder { color: #6b757d !important; }
 
-/* Browser surfaces — cheap signal of craft */
-html.dark ::selection { background: #27272a; color: #fafafa; }
-html.dark ::-moz-selection { background: #27272a; color: #fafafa; }
-html.dark * { caret-color: var(--brand-accent); scrollbar-color: var(--border-strong) transparent; }
-
-/* Tabular numerals where measurement lives */
-.tabular-nums { font-variant-numeric: tabular-nums; }
+.dark .shadow-sm { --tw-shadow-color: rgb(0 0 0 / 0.4); }

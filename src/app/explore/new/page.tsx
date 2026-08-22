@@ -176,18 +176,19 @@ function ExploreNewPageInner() {
     >
       {stage === 1 ? (
         <>
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Describe the work</h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">What are you trying to build or run? Use plain language — no model names needed.</p>
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Describe the work</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">What are you trying to build or run? Use plain language — no model names needed.</p>
           </div>
 
-          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800 sm:p-6">
-            <label className="text-xs font-semibold text-zinc-900 dark:text-white">Workload description</label>
+          <div className="panel p-5 sm:p-6">
+            <label className="text-sm font-semibold">Workload description</label>
+            <p className="mt-1 text-xs text-[var(--muted)]">Be specific about documents, volumes, and where the data lives.</p>
             <textarea
               value={rawInput}
               onChange={(e) => { setRawInput(e.target.value); setTranscript(e.target.value); }}
               placeholder="I need a system that processes invoices and other scanned paperwork from email and shared drives, extracts key fields (vendor, date, totals, line items), validates against our business rules, and posts to our ERP. It also needs to handle spreadsheets with financial data and product catalog images for our e-commerce team. Accuracy and data privacy are critical."
-              className="mt-2 h-40 w-full rounded-xl border bg-[#F7F5F0] px-4 py-3 text-sm leading-6 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316] dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+              className="mt-3 h-40 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm leading-6 placeholder:text-[var(--faint)] focus:bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20 focus:border-[var(--brand-accent)]"
             />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
@@ -197,71 +198,95 @@ function ExploreNewPageInner() {
                 onTouchEnd={handleStopRecording}
                 onMouseLeave={handleStopRecording}
                 disabled={transcribing}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${recording ? "bg-red-600 text-white" : transcribing ? "bg-zinc-700 text-white" : "bg-white border text-zinc-700 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300"}`}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${recording ? "bg-red-600 text-white shadow-sm" : transcribing ? "bg-zinc-700 text-white" : "border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--surface-2)]"}`}
               >
-                <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : "bg-red-400"}`} /> Hold to talk
+                <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : "bg-red-500"}`} aria-hidden /> Hold to talk
               </button>
-              <span className="text-xs text-zinc-500">{transcribing ? "Transcribing…" : "or type above"}</span>
-              {transcribeError && <span className="text-xs text-amber-700">{transcribeError}</span>}
+              <span className="text-xs text-[var(--muted)]">{transcribing ? "Transcribing…" : "or type above"}</span>
+              {transcribeError && <span className="text-xs font-medium text-amber-700">{transcribeError}</span>}
             </div>
             {isDemo && (
-              <button onClick={handleTranscriptFill} className="mt-3 text-xs font-medium text-[#F97316] hover:underline">
-                Use seeded scenario → Invoices + spreadsheets + product images (Pune, 400/d)
+              <button onClick={handleTranscriptFill} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--brand-accent)] hover:underline">
+                Use seeded scenario <span aria-hidden>→</span> Invoices + spreadsheets + product images (Pune, 400/d)
               </button>
             )}
           </div>
 
           {workload && understood && (
-            <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
-              <div className="text-xs font-semibold text-zinc-900 dark:text-white">What I understood</div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3 text-xs">
-                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
-                  <div className="text-zinc-500">Goal</div>
-                  <div className="font-medium text-zinc-900 dark:text-white">{understood.goal}</div>
+            <div className="panel mt-6 p-5">
+              <div className="flex items-center gap-2">
+                <span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 8.5L6 11.5L13 4.5" /></svg>
+                </span>
+                <span className="text-sm font-semibold">What I understood</span>
+                <span className="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">Extracted</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                <span className="font-medium text-[var(--foreground)]">{understood.goal}</span> — handling {understood.inputs.toLowerCase()} for {understood.users.toLowerCase()}, about {understood.volume.toLowerCase()}. We&apos;ll keep this editable in the next steps.
+              </p>
+              <div className="mt-4 grid gap-0 divide-y divide-[var(--border)] border-y border-[var(--border)]">
+                <div className="flex items-center justify-between py-2.5 text-sm">
+                  <span className="text-xs text-[var(--muted)]">Goal</span>
+                  <span className="text-sm font-medium">{understood.goal}</span>
                 </div>
-                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
-                  <div className="text-zinc-500">Inputs</div>
-                  <div className="font-medium text-zinc-900 dark:text-white">{understood.inputs}</div>
+                <div className="flex items-center justify-between py-2.5 text-sm">
+                  <span className="text-xs text-[var(--muted)]">Inputs</span>
+                  <span className="text-sm font-medium">{understood.inputs}</span>
                 </div>
-                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
-                  <div className="text-zinc-500">Volume</div>
-                  <div className="font-medium text-zinc-900 dark:text-white">{understood.volume}</div>
+                <div className="flex items-center justify-between py-2.5 text-sm">
+                  <span className="text-xs text-[var(--muted)]">Volume</span>
+                  <span className="text-sm font-medium">{understood.volume}</span>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="mt-6">
-            <div className="text-xs font-semibold text-zinc-900 dark:text-white">What are you trying to achieve?</div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {OUTCOMES.map((o) => (
-                <button
-                  key={o.id}
-                  onClick={() => setSelectedOutcome(o.id)}
-                  className={`rounded-xl border p-4 text-left transition ${selectedOutcome === o.id ? "border-[#F97316] bg-orange-50 dark:bg-orange-950/20" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800"}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className={`mt-0.5 grid h-5 w-5 place-items-center rounded-full border text-xs ${selectedOutcome === o.id ? "bg-[#F97316] border-[#F97316] text-white" : "border-zinc-300 text-zinc-400"}`}>✓</span>
-                    <div>
-                      <div className="text-sm font-medium text-zinc-900 dark:text-white">{o.label}</div>
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400">{o.desc}</div>
+          <div className="mt-8">
+            <h2 className="section-title">What are you trying to achieve?</h2>
+            <p className="section-sub">Pick the closest outcome — it guides which evidence we prioritize. You can change it later.</p>
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+              {OUTCOMES.map((o) => {
+                const active = selectedOutcome === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => setSelectedOutcome(o.id)}
+                    aria-pressed={active}
+                    className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? "border-[var(--brand-accent)] bg-orange-50 shadow-sm dark:bg-orange-950/20"
+                        : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-2)] hover:border-[var(--border-strong)]"
+                    }`}
+                  >
+                    {active && <span className="absolute inset-y-0 left-0 w-1 bg-[var(--brand-accent)]" aria-hidden />}
+                    <div className="flex items-start gap-3">
+                      <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold transition ${active ? "border-[var(--brand-accent)] bg-[var(--brand-accent)] text-white" : "border-[var(--border-strong)] text-transparent group-hover:border-[var(--muted)]"}`}>✓</span>
+                      <div>
+                        <div className="text-sm font-semibold">{o.label}</div>
+                        <div className="mt-0.5 text-xs leading-4 text-[var(--muted)]">{o.desc}</div>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {workload && (
-            <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
-              <div className="text-xs font-semibold text-zinc-900 dark:text-white">Compact extracted facts</div>
-              <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Budget</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.budget?.amount ? `${workload.budget.currency} ${workload.budget.amount.toLocaleString()}` : "Not specified"}</dd></div>
-                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.country ?? "IN"}</dd></div>
-                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Horizon</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.comparison_horizon ?? "12 months"}</dd></div>
-                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Users</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.expected_users ?? "6"}</dd></div>
+            <details className="panel mt-6 p-5" open>
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">Extracted facts</span>
+                  <span className="text-xs text-[var(--muted)]">Details — edit after privacy</span>
+                </div>
+              </summary>
+              <dl className="mt-4 divide-y divide-[var(--border)] border-y border-[var(--border)] text-sm">
+                <div className="def-row"><dt className="text-xs text-[var(--muted)]">Budget</dt><dd className="font-medium tabular-nums">{workload.budget?.amount ? `${workload.budget.currency} ${workload.budget.amount.toLocaleString()}` : "Not specified"}</dd></div>
+                <div className="def-row"><dt className="text-xs text-[var(--muted)]">Country</dt><dd className="font-medium">{workload.country ?? "IN"}</dd></div>
+                <div className="def-row"><dt className="text-xs text-[var(--muted)]">Horizon</dt><dd className="font-medium">{workload.comparison_horizon ?? "12 months"}</dd></div>
+                <div className="def-row"><dt className="text-xs text-[var(--muted)]">Users</dt><dd className="font-medium tabular-nums">{workload.expected_users ?? "6"}</dd></div>
               </dl>
-            </div>
+            </details>
           )}
 
           <StickyActionBar
@@ -282,42 +307,51 @@ function ExploreNewPageInner() {
         </>
       ) : (
         <>
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Set privacy</h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">Choose how sensitive your data is. This is a hard filter — it removes ineligible options before ranking.</p>
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">Set privacy</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose how sensitive your data is. This is a hard filter — it removes ineligible options before ranking.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              { id: "public", title: "Public", desc: "Shareable data", detail: "Any hosting, including public APIs" },
-              { id: "internal", title: "Internal", desc: "Team-only data", detail: "Approved team APIs and private hosting" },
-              { id: "confidential", title: "Confidential", desc: "Sensitive business data", detail: "External APIs excluded", highlight: true },
-              { id: "highly_sensitive", title: "Highly sensitive", desc: "Regulated data", detail: "Local-only, no external calls" },
-            ].map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPrivacy(p.id as WorkloadProfile["data_sensitivity"])}
-                className={`rounded-xl border p-4 text-left ${privacy === p.id ? "border-[#F97316] bg-orange-50 dark:bg-orange-950/20" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800"} ${p.highlight ? "ring-1 ring-[#F97316]/20" : ""}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="text-sm font-semibold text-zinc-900 dark:text-white">{p.title}</div>
-                  {privacy === p.id && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#F97316] text-white text-xs">✓</span>}
-                </div>
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">{p.desc}</div>
-                <div className={`mt-2 text-xs font-medium ${p.id === "confidential" ? "text-[#F97316]" : "text-zinc-500"}`}>{p.detail}</div>
-                {p.id === "confidential" && <div className="mt-2 rounded-lg bg-white border px-2.5 py-1.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Confidential → External APIs excluded, even under Maximum Performance</div>}
-              </button>
-            ))}
+              { id: "public", title: "Public", desc: "Shareable data", detail: "Any hosting, including public APIs", preview: "All hosting eligible — public APIs rank normally." },
+              { id: "internal", title: "Internal", desc: "Team-only data", detail: "Approved team APIs and private hosting", preview: "Public APIs require approval — private hosting preferred." },
+              { id: "confidential", title: "Confidential", desc: "Sensitive business data", detail: "External APIs excluded", preview: "External APIs never rank — even under Maximum Performance.", highlight: true },
+              { id: "highly_sensitive", title: "Highly sensitive", desc: "Regulated data", detail: "Local-only, no external calls", preview: "Strictly local — everything external is excluded." },
+            ].map((p) => {
+              const active = privacy === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setPrivacy(p.id as WorkloadProfile["data_sensitivity"])}
+                  aria-pressed={active}
+                  className={`relative overflow-hidden rounded-2xl border p-4 text-left transition ${
+                    active ? "border-[var(--brand-accent)] bg-orange-50 shadow-sm dark:bg-orange-950/20" : "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-2)]"
+                  } ${p.highlight && !active ? "ring-1 ring-[var(--brand-accent)]/15" : ""}`}
+                >
+                  {active && <span className="absolute inset-y-0 left-0 w-1 bg-[var(--brand-accent)]" aria-hidden />}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm font-semibold">{p.title}</div>
+                    {active && <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--brand-accent)] text-white">
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 8.5L6 11L13 4.5" /></svg>
+                    </span>}
+                  </div>
+                  <div className="mt-0.5 text-xs text-[var(--muted)]">{p.desc}</div>
+                  <div className={`mt-2 text-xs font-medium ${p.id === "confidential" && active ? "text-[var(--brand-accent)]" : "text-[var(--muted)]"}`}>{p.detail}</div>
+                  <div className={`mt-2 rounded-lg border px-2.5 py-1.5 text-xs leading-4 ${active ? "border-[var(--brand-accent)]/20 bg-white text-[var(--foreground)] dark:bg-zinc-900" : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]"}`}>{p.preview}</div>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
-            <div className="text-xs font-semibold text-zinc-900 dark:text-white">Privacy summary</div>
-            <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
-              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Data classification</span><span className="font-medium capitalize text-zinc-900 dark:text-white">{privacy.replace("_", " ")}</span></div>
-              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Hosting</span><span className="font-medium text-zinc-900 dark:text-white">{privacy === "confidential" || privacy === "highly_sensitive" ? "Self-hosted, local-first" : "Any approved"}</span></div>
-              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">External API</span><span className={`font-medium ${privacy === "confidential" || privacy === "highly_sensitive" ? "text-amber-700" : "text-emerald-700"}`}>{privacy === "confidential" || privacy === "highly_sensitive" ? "Excluded" : "Allowed"}</span></div>
-              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Data residency</span><span className="font-medium text-zinc-900 dark:text-white">On-prem or private cloud</span></div>
-            </div>
+          <div className="panel mt-6 p-5">
+            <div className="text-sm font-semibold">What changes with &ldquo;{privacy.replace("_", " ")}&rdquo;</div>
+            <dl className="mt-4 divide-y divide-[var(--border)] border-y border-[var(--border)] text-sm">
+              <div className="def-row"><dt className="text-xs text-[var(--muted)]">Data classification</dt><dd className="font-medium capitalize">{privacy.replace("_", " ")}</dd></div>
+              <div className="def-row"><dt className="text-xs text-[var(--muted)]">Hosting</dt><dd className="font-medium">{privacy === "confidential" || privacy === "highly_sensitive" ? "Self-hosted, local-first" : "Any approved"}</dd></div>
+              <div className="def-row"><dt className="text-xs text-[var(--muted)]">External API</dt><dd className={`font-medium ${privacy === "confidential" || privacy === "highly_sensitive" ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{privacy === "confidential" || privacy === "highly_sensitive" ? "Excluded" : "Allowed"}</dd></div>
+              <div className="def-row"><dt className="text-xs text-[var(--muted)]">Data residency</dt><dd className="font-medium">On-prem or private cloud</dd></div>
+            </dl>
           </div>
 
           <StickyActionBar

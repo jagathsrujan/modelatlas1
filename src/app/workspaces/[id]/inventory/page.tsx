@@ -84,15 +84,15 @@ function InventoryPageInner() {
       }
     >
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Inventory</h1>
-        <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400">Compact asset cards — verification status, hardware, last verified. Details in drawer.</p>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Inventory</h1>
+        <p className="mt-1 max-w-xl text-sm leading-5 text-[var(--muted)]">Your hardware, verified and ready to plan around. Select assets to preview cluster topology.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {assets.map((a) => {
           const active = selected.includes(a.id);
           return (
-            <div key={a.id} className={`rounded-xl border bg-white p-4 hover:shadow-sm transition dark:bg-zinc-900 dark:border-zinc-800 ${active ? "ring-1 ring-[#F97316] border-[#F97316]/30" : ""}`}>
+            <div key={a.id} className={`panel p-4 transition ${active ? "ring-2 ring-[var(--brand-accent)] border-[var(--brand-accent)]/30 shadow-sm" : "hover:border-[var(--border-strong)]"}`}>
               <div className="flex items-start gap-3">
                 <input type="checkbox" checked={active} onChange={() => toggleSelect(a.id)} className="mt-1 h-4 w-4 rounded border-zinc-300 text-[#F97316] focus:ring-[#F97316]" />
                 <div className="min-w-0 flex-1">

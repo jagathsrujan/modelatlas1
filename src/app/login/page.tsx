@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LogoReveal } from "@/components/LogoReveal";
+import { BrandTile } from "@/components/BrandMark";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -63,65 +66,109 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fcfcfa] dark:bg-[#09090b] px-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white dark:bg-zinc-900 p-6 sm:p-8 shadow-sm">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">Welcome to ModelAtlas</h1>
-        <p className="mt-2 text-sm leading-5 text-zinc-600 dark:text-zinc-400">
-          Sign in to save workloads, hardware, and team opportunities. Google onboarding is live once Supabase is configured.
-        </p>
+    <div className="min-h-screen bg-[var(--background)]">
+      {/* Top nav — minimal, consistent */}
+      <nav className="border-b border-[var(--border)] bg-[var(--surface)]">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
+          <Link href="/" className="flex items-center gap-2.5">
+            <BrandTile size="sm" />
+            <span className="text-sm font-semibold tracking-tight">ModelAtlas</span>
+          </Link>
+          <span className="ml-auto text-xs text-[var(--muted)]">Private · India-first · No checkout</span>
+        </div>
+      </nav>
 
-        {!isSupabaseConfigured && (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-            Demo mode: Supabase not configured (<code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> is placeholder).
-            <br />Set real Supabase Cloud URL + anon key in <code className="font-mono">.env.local</code> and enable Google in Supabase Dashboard → Auth → Providers, then restart <code className="font-mono">npm run dev</code>.
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-12 lg:grid-cols-[1.05fr_1fr] lg:gap-12 lg:py-16">
+        {/* Brand panel */}
+        <div>
+          <LogoReveal compact />
+          <div className="mt-6">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">The decision before the spend.</h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-[var(--muted)]">
+              ModelAtlas turns a plain-language workload into an explainable, privacy-filtered recommendation — with landed costs, evidence, and a plan. Not a cart.
+            </p>
           </div>
-        )}
-
-        <button
-          onClick={handleGoogle}
-          disabled={loading}
-          className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border bg-white px-5 py-3 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:opacity-50 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 dark:hover:bg-zinc-700"
-        >
-          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C34.7 32.1 30 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l6-6C34.8 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.8 0 21-8.2 21-21 0-1.4-.1-2.2-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.3 16.1 18.8 14 24 14c3.1 0 5.9 1.2 8 3.1l6-6C34.8 5.1 29.6 3 24 3 16.4 3 9.7 7.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 10-1.9 13.6-5.1l-6.6-5.4C28.9 36.3 26.6 37 24 37c-5.7 0-10.5-3.8-12.2-8.9l-6.6 5.1C8.7 40.6 15.8 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.9 5.5-7.3 6.5l6.6 5.4C38 36.8 43 30.1 43 24c0-1.1-.1-2-.4-3.5z"/></svg>
-          Continue with Google
-        </button>
-
-        <div className="my-6 flex items-center gap-3 text-xs text-zinc-400">
-          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" /> or <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+          <div className="mt-6 grid gap-3 text-sm sm:grid-cols-3">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+              <div className="text-xs font-semibold">Privacy hard filter</div>
+              <div className="mt-1 text-xs leading-4 text-[var(--muted)]">Confidential never ranks external APIs.</div>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+              <div className="text-xs font-semibold">Every fact cited</div>
+              <div className="mt-1 text-xs leading-4 text-[var(--muted)]">Source + timestamp + confidence.</div>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3">
+              <div className="text-xs font-semibold">India-first costs</div>
+              <div className="mt-1 text-xs leading-4 text-[var(--muted)]">Landed total, GST included.</div>
+            </div>
+          </div>
+          <Link href="/explore/new?demo=true&autostart=1" className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-xs font-medium hover:bg-[var(--surface-2)]">
+            Continue without signing in — try the seeded demo <span aria-hidden>→</span>
+          </Link>
+          <p className="mt-2 text-xs text-[var(--muted)]">No account needed to explore. Sign in only to save and share with your team.</p>
         </div>
 
-        <form onSubmit={handleMagicLink} className="space-y-3">
-          <label className="block">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Email (magic link)</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              className="mt-1.5 w-full rounded-xl border bg-zinc-50 px-3.5 py-2.5 text-sm placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
-              required
-            />
-          </label>
-          <button type="submit" disabled={loading} className="w-full rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
-            {sent ? "Check your email →" : "Send magic link"}
+        {/* Auth form */}
+        <div className="panel p-6 sm:p-8">
+          <h2 className="text-lg font-semibold tracking-tight">Sign in to save</h2>
+          <p className="mt-1.5 text-sm leading-5 text-[var(--muted)]">
+            Save workloads, hardware, and team opportunities. Workspaces are RLS-protected.
+          </p>
+          <p className="mt-1 text-xs text-[var(--muted)]">What&apos;s saved after sign-in: workloads, hardware, opportunities, plans, policies — per workspace.</p>
+
+          {!isSupabaseConfigured && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-200">
+              Demo mode: Supabase not configured (<code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> is placeholder).
+              <br />Set real Supabase Cloud URL + anon key in <code className="font-mono">.env.local</code> and enable Google in Supabase Dashboard → Auth → Providers, then restart <code className="font-mono">npm run dev</code>.
+            </div>
+          )}
+
+          <button
+            onClick={handleGoogle}
+            disabled={loading}
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold shadow-sm hover:bg-[var(--surface-2)] disabled:opacity-50"
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C34.7 32.1 30 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l6-6C34.8 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.8 0 21-8.2 21-21 0-1.4-.1-2.2-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.3 16.1 18.8 14 24 14c3.1 0 5.9 1.2 8 3.1l6-6C34.8 5.1 29.6 3 24 3 16.4 3 9.7 7.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 10-1.9 13.6-5.1l-6.6-5.4C28.9 36.3 26.6 37 24 37c-5.7 0-10.5-3.8-12.2-8.9l-6.6 5.1C8.7 40.6 15.8 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.9 5.5-7.3 6.5l6.6 5.4C38 36.8 43 30.1 43 24c0-1.1-.1-2-.4-3.5z"/></svg>
+            Continue with Google
           </button>
-          {sent && <p className="text-xs text-emerald-700 dark:text-emerald-400">Magic link sent — check inbox and click to finish onboarding.</p>}
-        </form>
 
-        <details className="mt-4 rounded-xl border bg-zinc-50 p-3 dark:bg-zinc-800 dark:border-zinc-700">
-          <summary className="cursor-pointer text-xs font-semibold text-zinc-700 dark:text-zinc-300">Or use email + password</summary>
-          <form onSubmit={handleEmailPassword} className="mt-3 space-y-3">
-            <input type="email" name="email" placeholder="Email" defaultValue={email} className="w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm dark:bg-zinc-900 dark:border-zinc-700 dark:text-white" required />
-            <input type="password" name="password" placeholder="Password (min 6)" className="w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm dark:bg-zinc-900 dark:border-zinc-700 dark:text-white" required minLength={6} />
-            <button type="submit" disabled={loading} className="w-full rounded-full border bg-white px-5 py-2.5 text-sm font-medium hover:bg-zinc-50 dark:bg-zinc-900 dark:text-white dark:border-zinc-700">Sign in / Sign up</button>
+          <div className="my-6 flex items-center gap-3 text-xs text-[var(--faint)]">
+            <span className="h-px flex-1 bg-[var(--border)]" aria-hidden /> or <span className="h-px flex-1 bg-[var(--border)]" aria-hidden />
+          </div>
+
+          <form onSubmit={handleMagicLink} className="space-y-3">
+            <label className="block">
+              <span className="text-xs font-semibold">Email (magic link)</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="mt-1.5 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5 text-sm placeholder:text-[var(--faint)] focus:bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20 focus:border-[var(--brand-accent)]"
+                required
+              />
+            </label>
+            <button type="submit" disabled={loading} className="w-full rounded-full bg-[#0d1319] px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+              {sent ? "Check your email →" : "Send magic link"}
+            </button>
+            {sent && <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Magic link sent — check inbox and click to finish onboarding.</p>}
           </form>
-        </details>
 
-        {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800 dark:bg-red-950/30 dark:border-red-800 dark:text-red-300">{error}</div>}
+          <details className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+            <summary className="cursor-pointer text-xs font-semibold">Or use email + password</summary>
+            <form onSubmit={handleEmailPassword} className="mt-3 space-y-3">
+              <input type="email" name="email" placeholder="Email" defaultValue={email} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20" required />
+              <input type="password" name="password" placeholder="Password (min 6)" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20" required minLength={6} />
+              <button type="submit" disabled={loading} className="w-full rounded-full border border-[var(--border)] bg-[var(--surface)] px-5 py-2.5 text-sm font-medium hover:bg-[var(--surface-2)]">Sign in / Sign up</button>
+            </form>
+          </details>
 
-        <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          By continuing you agree to RLS-protected workspaces. <a href="/settings/policies" className="underline">Policies →</a>
-        </p>
+          {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-200">{error}</div>}
+
+          <p className="mt-6 text-center text-xs text-[var(--muted)]">
+            By continuing you agree to RLS-protected workspaces. <Link href="/settings/policies" className="underline decoration-[var(--border-strong)] underline-offset-2 hover:decoration-[var(--foreground)]">Policies →</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

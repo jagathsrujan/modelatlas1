@@ -88,7 +88,7 @@ function PlanPageInner() {
               <span className={`rounded-full px-2.5 py-1 font-medium border ${plan.approval_status === "approved" ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300" : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300"}`}>Approval: {plan.approval_status}</span>
               <span className="rounded-full bg-zinc-900 text-white px-2.5 py-1 dark:bg-white dark:text-zinc-900">{plan.recommended_strategy}</span>
               <span className="rounded-full border bg-white px-2.5 py-1 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300">Confidential</span>
-              <span className="rounded-full bg-white border px-2.5 py-1 dark:bg-zinc-800 dark:border-zinc-700">92% confidence</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-800/30 dark:text-emerald-200">92% confidence · explained in verification</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -153,9 +153,19 @@ function PlanPageInner() {
       )}
 
       {tab !== "overview" && tab !== "costs" && tab !== "risks" && (
-        <div className="rounded-xl border bg-white p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
-          <div className="text-sm font-medium capitalize text-zinc-900 dark:text-white">{tab}</div>
-          <div className="mt-1 text-xs text-zinc-500">Details for {tab} — architecture diagrams, delivery timelines, and verification checklists live here.</div>
+        <div className="panel p-8 text-center">
+          <div className="mx-auto max-w-md">
+            <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--muted)]">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden><rect x="2.5" y="2.5" width="11" height="11" rx="1.2"/><path d="M5 6H11M5 8.5H11M5 11H8"/></svg>
+            </div>
+            <div className="mt-3 text-sm font-semibold capitalize">{tab}</div>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+              {tab === "architecture" && "Data flow and service diagram — ingest, retrieve, generate — with your hardware mapped."}
+              {tab === "delivery" && "Phased delivery timeline with owners and exit criteria — from ingest to verified handoff."}
+              {tab === "verification" && "Pre-flight checks and evidence — confirm the plan before anyone provisions."}
+            </p>
+            <p className="mt-2 text-xs text-[var(--faint)]">Live content appears after you approve and connect sources.</p>
+          </div>
         </div>
       )}
     </WorkspaceShell>

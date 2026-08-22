@@ -50,14 +50,14 @@ export function FiveStageProgress({
                 aria-current={state === "current" ? "step" : undefined}
               >
                 <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold ${
-                  state === "current" ? "bg-white text-[#F97316]" : state === "done" ? "bg-white text-emerald-600" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300"
+                  state === "current" ? "bg-white text-[var(--brand-accent)]" : state === "done" ? "bg-white text-emerald-600" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-300"
                 }`}>
                   {s.n}
                 </span>
                 <span className="hidden lg:inline">{s.label}</span>
                 <span className="lg:hidden">{s.short}</span>
               </button>
-              {s.n < 5 && <div className={`hidden sm:block h-px flex-1 ${s.n < stage ? "bg-emerald-600" : s.n === stage ? "bg-[#F97316]/30" : "bg-zinc-200 dark:bg-zinc-700"}`} />}
+              {s.n < 5 && <div className={`hidden sm:block h-px flex-1 ${s.n < stage ? "bg-emerald-600" : s.n === stage ? "bg-[var(--brand-accent)]/30" : "bg-[var(--border)]"}`} />}
             </div>
           );
         })}
@@ -78,7 +78,7 @@ export function FiveStageProgress({
               <div
                 key={s.n}
                 className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  state === "done" ? "bg-emerald-600" : state === "current" ? "bg-[#F97316]" : "bg-zinc-200 dark:bg-zinc-700"
+                  state === "done" ? "bg-emerald-600" : state === "current" ? "bg-[var(--brand-accent)]" : "bg-[var(--border)]"
                 }`}
               />
             );

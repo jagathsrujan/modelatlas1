@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WorkspaceShell } from "@/components/WorkspaceShell";
 import { TrustSummary } from "@/components/TrustSummary";
+import { ConfidenceMeter } from "@/components/ConfidenceMeter";
 import { localRepository } from "@/lib/persistence/local-repository";
 import { TEAM_WORKLOAD_PROFILES, TEAM_OPPORTUNITY_SEED } from "@/lib/data/seed";
 import type { TeamOpportunity } from "@/lib/domain/types";
@@ -32,15 +33,7 @@ function WorkspaceOverviewPageInner() {
       workspaceName="Astra Manufacturing Pvt. Ltd."
       rightRail={
         <>
-          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
-            <div className="text-xs font-semibold text-zinc-900 dark:text-white">Confidence</div>
-            <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-white">92%</div>
-            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">High confidence</div>
-            <div className="mt-2 h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
-              <div className="h-1.5 w-[92%] rounded-full bg-[#F97316]" />
-            </div>
-            <div className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">Based on your inputs, data sensitivity, and verified inventory.</div>
-          </div>
+          <ConfidenceMeter value={92} drivers={{ profile: 0.94, evidence: 0.88, verification: 0.82, recency: 0.92 }} sources={12} freshness="Checked today" howToImprove={["Verify end-to-end test", "Re-run scout for fresher pricing"]} size="featured" />
           <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <div className="text-xs font-semibold text-zinc-900 dark:text-white">Verification tasks</div>
@@ -73,7 +66,7 @@ function WorkspaceOverviewPageInner() {
               <li className="flex gap-2"><span className="grid h-5 w-5 place-items-center rounded-full border text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">2</span><span>Choose a topology</span></li>
               <li className="flex gap-2"><span className="grid h-5 w-5 place-items-center rounded-full border text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">3</span><span>Generate implementation plan</span></li>
             </ol>
-            <Link href={`/workspaces/${id}/plans/plan-demo${q}`} className="mt-4 block w-full rounded-full bg-[#F97316] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-orange-600">Review opportunity →</Link>
+            <Link href={`/workspaces/${id}/plans/plan-demo${q}`} className="btn-primary mt-4 block w-full rounded-full px-4 py-2.5 text-center text-sm font-semibold">Review opportunity →</Link>
           </div>
         </>
       }
@@ -125,10 +118,10 @@ function WorkspaceOverviewPageInner() {
                 <div className="text-zinc-500">Est. impact</div>
                 <div className="mt-1 font-medium text-zinc-900 dark:text-white">~35–50% reduction in manual effort</div>
               </div>
-              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
-                <div className="text-zinc-500">Confidence</div>
-                <div className="mt-1 font-bold text-zinc-900 dark:text-white">92%</div>
-                <div className="mt-1 h-1 w-full rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-1 w-[92%] rounded-full bg-[#F97316]" /></div>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 dark:bg-emerald-950/20 dark:border-emerald-800/30">
+                <div className="text-xs font-medium text-emerald-800 dark:text-emerald-200">Confidence</div>
+                <div className="mt-1 flex items-baseline gap-1.5"><span className="text-sm font-semibold tabular-nums text-emerald-900 dark:text-emerald-100">92%</span><span className="text-xs text-emerald-700 dark:text-emerald-300">high</span></div>
+                <div className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">Explained in rail →</div>
               </div>
             </div>
 
