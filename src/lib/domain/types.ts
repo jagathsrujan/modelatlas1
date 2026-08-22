@@ -387,6 +387,62 @@ export const ChatThreadSchema = z.object({
 });
 export type ChatThread = z.infer<typeof ChatThreadSchema>;
 
+// ── Sellers & Inquiries (V1 marketplace boundary) ────────────────────────
+export const ServiceTypeSchema = z.enum(["hosted_api","custom_model","consulting","gpu_rental"]);
+export type ServiceType = z.infer<typeof ServiceTypeSchema>;
+
+export const VerificationStatusSchema = z.enum(["unverified","pending","verified","rejected","suspended"]);
+export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+export const SellerProfileSchema = z.object({
+  id: z.string().uuid(),
+  display_name: z.string().min(2).max(80),
+  legal_name: z.string().nullable().optional(),
+  bio: z.string().max(2000).nullable().optional(),
+  service_types: z.array(ServiceTypeSchema).min(1),
+  regions: z.array(z.string()).min(1), // IN, US only V1 but flexible
+  website: z.string().url().nullable().optional().or(z.literal("").optional()),
+  verification_status: VerificationStatusSchema.default("unverified"),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type SellerProfile = z.infer<typeof SellerProfileSchema>;
+
+export const SellerListingSchema = z.object({
+  id: z.string().uuid(),
+  seller_id: z.string().uuid(),
+  title: z.string().min(3).max(120),
+  description: z.string().max(4000).nullable().optional(),
+  modalities: z.array(z.string()).default([]),
+  price_metadata: z.record(z.string(), z.unknown()).default({}),
+  catalog_ref: z.string().nullable().optional(),
+  license: z.string().nullable().optional(),
+  availability: z.string().nullable().optional(),
+  status: z.enum(["draft","pending","active","rejected"]).default("draft"),
+  freshness_status: z.enum(["current","aging","stale","curated"]).nullable().optional(),
+  last_checked_at: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+});
+export type SellerListing = z.infer<typeof SellerListingSchema>;
+
+export const InquiryStatusSchema = z.enum(["pending","accepted","declined","withdrawn"]);
+export type InquiryStatus = z.infer<typeof InquiryStatusSchema>;
+
+export const BuyerInquirySchema = z.object({
+  id: z.string().uuid(),
+  workload_id: z.string().min(1),
+  buyer_id: z.string().uuid(),
+  seller_id: z.string().uuid(),
+  message: z.string().min(10).max(2000),
+  budget: z.string().nullable().optional(),
+  horizon_days: z.number().int().min(1).max(3650).nullable().optional(),
+  status: InquiryStatusSchema.default("pending"),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type BuyerInquiry = z.infer<typeof BuyerInquirySchema>;
+
 // helper for freshness labeling
 export const PRIVACY_ORDER: Record<PrivacyClassification, number> = {
   public: 0,

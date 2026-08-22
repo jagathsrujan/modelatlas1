@@ -5,6 +5,7 @@ import Link from "next/link";
 import { WorkspaceShell } from "@/components/WorkspaceShell";
 import { TrustSummary } from "@/components/TrustSummary";
 import { ConfidenceMeter } from "@/components/ConfidenceMeter";
+import WorkspaceInquiries from "@/components/workspace/WorkspaceInquiries";
 import { localRepository } from "@/lib/persistence/local-repository";
 import { TEAM_WORKLOAD_PROFILES, TEAM_OPPORTUNITY_SEED } from "@/lib/data/seed";
 import type { TeamOpportunity } from "@/lib/domain/types";
@@ -68,6 +69,7 @@ function WorkspaceOverviewPageInner() {
             </ol>
             <Link href={`/workspaces/${id}/plans/plan-demo${q}`} className="btn-primary mt-4 block w-full rounded-full px-4 py-2.5 text-center text-sm font-semibold">Review opportunity →</Link>
           </div>
+          <WorkspaceInquiries workspaceId={id} />
         </>
       }
     >

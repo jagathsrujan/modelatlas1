@@ -1,4 +1,4 @@
-import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief, ChatThread, ChatMessage } from "@/lib/domain/types";
+import type { WorkloadProfile, DecisionSession, AgentTrace, WorkspacePolicy, TeamOpportunity, HardwareAsset, Recommendation, ImplementationPlan, ResearchBrief, ChatThread, ChatMessage, SellerProfile, SellerListing, BuyerInquiry, InquiryStatus } from "@/lib/domain/types";
 
 export interface Repository {
   // Workload
@@ -41,6 +41,20 @@ export interface Repository {
   saveMessage(threadId: string, msg: Omit<ChatMessage, "id" | "thread_id" | "created_at"> & { id?: string }): Promise<ChatMessage>;
   listMessages(threadId: string): Promise<ChatMessage[]>;
   deleteThread(id: string): Promise<void>;
+  // Sellers (V1 marketplace)
+  saveSeller(p: SellerProfile): Promise<SellerProfile>;
+  getSeller(id: string): Promise<SellerProfile | null>;
+  listSellers(opts?: { service_type?: string; region?: string; q?: string; verifiedOnly?: boolean; limit?: number; page?: number; requesterId?: string | null }): Promise<{ profiles: SellerProfile[]; total: number }>;
+  // Seller Listings
+  saveListing(l: SellerListing): Promise<SellerListing>;
+  getListing(id: string): Promise<SellerListing | null>;
+  listListings(sellerId: string, opts?: { includeDrafts?: boolean; requesterId?: string | null }): Promise<SellerListing[]>;
+  deleteListing(id: string): Promise<void>;
+  // Buyer Inquiries
+  saveInquiry(i: BuyerInquiry): Promise<BuyerInquiry>;
+  getInquiry(id: string): Promise<BuyerInquiry | null>;
+  listInquiries(filters?: { buyerId?: string; sellerId?: string; workloadId?: string }): Promise<BuyerInquiry[]>;
+  updateInquiryStatus(id: string, status: InquiryStatus): Promise<BuyerInquiry | null>;
 }
 
 // Factory: demo → LocalRepository, else try Supabase if user is authenticated and env is set.

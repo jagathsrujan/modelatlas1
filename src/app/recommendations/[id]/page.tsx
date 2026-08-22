@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { DecisionShell } from "@/components/DecisionShell";
 import { DecisionCopilotPanel } from "@/components/DecisionCopilotPanel";
 import { TrustSummary } from "@/components/TrustSummary";
@@ -197,6 +198,14 @@ function RecommendationsPageInner() {
   return (
     <DecisionShell stage={4} sessionName={workload.title} copilot={<DecisionCopilotPanel step="comparison" trace={["preset ranking: hard filters first", "policy gate: confidential excludes external API"]} provenance={["curated_fixture — CATALOG_MODELS & MARKETPLACE_LISTINGS"]} freshness="V1: <24h current · 24–72h aging" assumptions={workload.assumptions.slice(0,2)} />}>
       {aiBanner && <div className="mb-4">{aiBanner}</div>}
+      {/* Seller Connect secondary surface — deep link with workload context, keeps ranking pure */}
+      <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:bg-zinc-900 dark:border-zinc-800 flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[180px]">
+          <div className="text-sm font-semibold">Need help implementing this plan?</div>
+          <div className="text-xs text-zinc-600 dark:text-zinc-400">Connect with verified sellers for RAG, custom models, or GPU rentals — structured, audited inquiry.</div>
+        </div>
+        <Link href={`/sellers?service_type=consulting&workload=${workload.id}${isDemo ? "&demo=true" : ""}`} className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-black dark:bg-white dark:text-zinc-900">Connect with verified sellers →</Link>
+      </div>
       {/* Recommended solution — solution-first */}
       <div className="rounded-xl border-2 border-[#F97316]/20 bg-white p-5 dark:bg-zinc-900 dark:border-zinc-800 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">

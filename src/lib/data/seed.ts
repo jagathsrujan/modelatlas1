@@ -1,4 +1,4 @@
-import type { CatalogModel, HardwareAsset, MarketplaceListing, TeamOpportunity, WorkloadProfile, WorkspacePolicy } from "@/lib/domain/types";
+import type { CatalogModel, HardwareAsset, MarketplaceListing, TeamOpportunity, WorkloadProfile, WorkspacePolicy, SellerProfile, SellerListing } from "@/lib/domain/types";
 
 // helper
 function isoNow(offsetHours = 0) {
@@ -1007,6 +1007,130 @@ export function getCuratedResearchFixture() {
   // re-export from research-fixture; avoid circular import by lazy
   return CATALOG_MODELS.slice(0, 3);
 }
+
+// ── Seller seed (V1 marketplace — 3 fake sellers, keeps ?demo=true green) ──
+
+export const SELLER_PROFILES_SEED: SellerProfile[] = [
+  {
+    id: "550e8400-e29b-41d4-a716-446655440001",
+    display_name: "Pune RAG Labs",
+    legal_name: "Pune RAG Labs Pvt Ltd",
+    bio: "Confidential RAG for manufacturing: invoices, spreadsheets, product manuals. Private VPC deployment, India DC. Apache-2.0 models + BGE embeddings.",
+    service_types: ["consulting","hosted_api"],
+    regions: ["IN"],
+    website: "https://punerag.example.com",
+    verification_status: "verified",
+    created_at: isoNow(-40),
+    updated_at: isoNow(-2),
+  },
+  {
+    id: "550e8400-e29b-41d4-a716-446655440002",
+    display_name: "Atlas GPU Rentals",
+    legal_name: "Atlas GPU Rentals",
+    bio: "On-demand H100/A100 rentals in Delhi & Mumbai. Hourly & monthly, SLA 99.9%, DGX-ready. Also custom fine-tuning on your data.",
+    service_types: ["gpu_rental","custom_model"],
+    regions: ["IN","US"],
+    website: "https://atlasgpu.example.com",
+    verification_status: "verified",
+    created_at: isoNow(-30),
+    updated_at: isoNow(-3),
+  },
+  {
+    id: "550e8400-e29b-41d4-a716-446655440003",
+    display_name: "Inference Forge",
+    legal_name: null,
+    bio: "Hosted inference for Mistral, Llama, Qwen — per-1K pricing, Zero Data Retention endpoints, OpenRouter-style /models proof available.",
+    service_types: ["hosted_api","consulting"],
+    regions: ["US"],
+    website: "https://inferenceforge.example.com",
+    verification_status: "unverified",
+    created_at: isoNow(-12),
+    updated_at: isoNow(-1),
+  },
+];
+
+export const SELLER_LISTINGS_SEED: SellerListing[] = [
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    seller_id: "550e8400-e29b-41d4-a716-446655440001",
+    title: "Manufacturing RAG — 4-week pilot",
+    description: "Private RAG over invoices + spreadsheets + manuals. Includes OCR, BGE embeddings, Mistral 7B, 90-day support. Deployed in your VPC (IN).",
+    modalities: ["text","image","spreadsheet"],
+    price_metadata: { indicative_price_min: 180000, indicative_price_max: 250000, currency: "INR", pricing_model: "fixed" },
+    catalog_ref: null,
+    license: "Proprietary — pilot SOW",
+    availability: "4 weeks",
+    status: "active",
+    freshness_status: "current",
+    last_checked_at: isoNow(-1),
+    created_at: isoNow(-20),
+    updated_at: isoNow(-1),
+  },
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    seller_id: "550e8400-e29b-41d4-a716-446655440001",
+    title: "Per-1K RAG inference (IN VPC)",
+    description: "Hosted RAG API, private endpoint, per-1K tokens. Zero retention, 32K context.",
+    modalities: ["text","image"],
+    price_metadata: { per_1k_input: 0.00025, per_1k_output: 0.0005, currency: "INR" },
+    catalog_ref: "mistral-7b-instruct-v0.3",
+    license: "Apache 2.0",
+    availability: "on-demand",
+    status: "active",
+    freshness_status: "current",
+    last_checked_at: isoNow(-2),
+    created_at: isoNow(-18),
+    updated_at: isoNow(-2),
+  },
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    seller_id: "550e8400-e29b-41d4-a716-446655440002",
+    title: "H100 80GB — hourly rented (Mumbai DC)",
+    description: "H100 on-demand, E2E-style Mumbai. 850W, InfiniBand, DGX stack. Hourly billing.",
+    modalities: ["text","code","image"],
+    price_metadata: { per_hour: 245, currency: "INR", hours_per_day: "24" },
+    catalog_ref: null,
+    license: "Cloud SLA",
+    availability: "on-demand",
+    status: "active",
+    freshness_status: "current",
+    last_checked_at: isoNow(-1),
+    created_at: isoNow(-15),
+    updated_at: isoNow(-1),
+  },
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    seller_id: "550e8400-e29b-41d4-a716-446655440002",
+    title: "A100 80GB — monthly lease (Delhi)",
+    description: "A100 lease, Delhi DC, 95K/mo + GST. Includes support.",
+    modalities: ["text","image"],
+    price_metadata: { per_month: 95000, currency: "INR" },
+    catalog_ref: null,
+    license: "Cloud SLA",
+    availability: "monthly",
+    status: "active",
+    freshness_status: "current",
+    last_checked_at: isoNow(-2),
+    created_at: isoNow(-14),
+    updated_at: isoNow(-2),
+  },
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    seller_id: "550e8400-e29b-41d4-a716-446655440003",
+    title: "Qwen2 7B hosted inference",
+    description: "Qwen2 7B Instruct — hosted API, per-1K, 32K context.",
+    modalities: ["text","code"],
+    price_metadata: { per_1k_input: 0.0002, per_1k_output: 0.0003, currency: "USD" },
+    catalog_ref: "qwen2-7b-instruct",
+    license: "Qwen License",
+    availability: "on-demand",
+    status: "active",
+    freshness_status: "aging",
+    last_checked_at: isoNow(-35),
+    created_at: isoNow(-10),
+    updated_at: isoNow(-10),
+  },
+];
 
 export const DEMO_TRANSCRIPT = `We run a small manufacturing company in Pune. Our finance team processes 300 to 400 invoices and scanned bills every day — they are PDFs and photos of paper, some are handwritten. Operations tracks inventory in spreadsheets and needs to ask questions like which items are below reorder level. Support answers customer questions from product manuals and product images. We want to search and ask questions over these documents privately — we cannot send confidential invoices to an external API. We have a Mac Studio and a Windows PC with RTX 4090, and our budget is about six lakh rupees for the year. We are in India and want to compare costs over 12 months.`;
 

@@ -345,4 +345,232 @@ export class SupabaseRepository implements Repository {
   async deleteThread(id: string): Promise<void> {
     await (this.supabase as any).from("chat_threads").delete().eq("id", id);
   }
+
+  // Sellers (V1)
+  async saveSeller(p: import("@/lib/domain/types").SellerProfile): Promise<import("@/lib/domain/types").SellerProfile> {
+    const { error } = await (this.supabase as any).from("seller_profiles").upsert({
+      id: p.id,
+      display_name: p.display_name,
+      legal_name: (p as any).legal_name ?? null,
+      bio: (p as any).bio ?? null,
+      service_types: p.service_types,
+      regions: p.regions,
+      website: (p as any).website ?? null,
+      verification_status: p.verification_status,
+      updated_at: new Date().toISOString(),
+    } as any);
+    if (error) throw error;
+    return p;
+  }
+  async getSeller(id: string): Promise<import("@/lib/domain/types").SellerProfile | null> {
+    const { data, error } = await (this.supabase as any).from("seller_profiles").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return {
+      id: (data as any).id,
+      display_name: (data as any).display_name,
+      legal_name: (data as any).legal_name,
+      bio: (data as any).bio,
+      service_types: (data as any).service_types ?? [],
+      regions: (data as any).regions ?? [],
+      website: (data as any).website,
+      verification_status: (data as any).verification_status,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+  }
+  async listSellers(opts?: { service_type?: string; region?: string; q?: string; verifiedOnly?: boolean; limit?: number; page?: number; requesterId?: string | null }): Promise<{ profiles: import("@/lib/domain/types").SellerProfile[]; total: number }> {
+    const { data, error } = await (this.supabase as any).from("seller_profiles").select("*").order("created_at", { ascending: false }).limit(200);
+    if (error || !data) return { profiles: [], total: 0 };
+    let all = (data as any[]).map((r: any) => ({
+      id: r.id,
+      display_name: r.display_name,
+      legal_name: r.legal_name,
+      bio: r.bio,
+      service_types: r.service_types ?? [],
+      regions: r.regions ?? [],
+      website: r.website,
+      verification_status: r.verification_status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    })) as import("@/lib/domain/types").SellerProfile[];
+    // Note: RLS already filters to verified OR own, so we just apply in-memory filters
+    if (opts?.service_type) all = all.filter(p => p.service_types.includes(opts.service_type as any));
+    if (opts?.region) all = all.filter(p => p.regions.includes(opts.region as string));
+    if (opts?.q) {
+      const low = opts.q.toLowerCase();
+      all = all.filter(p => p.display_name.toLowerCase().includes(low) || (p.bio && p.bio.toLowerCase().includes(low)));
+    }
+    if (opts?.verifiedOnly) all = all.filter(p => p.verification_status === "verified");
+    all.sort((a, b) => {
+      if (a.verification_status === "verified" && b.verification_status !== "verified") return -1;
+      if (a.verification_status !== "verified" && b.verification_status === "verified") return 1;
+      return a.display_name.localeCompare(b.display_name);
+    });
+    const total = all.length;
+    const limit = opts?.limit ?? 24;
+    const page = opts?.page ?? 1;
+    const start = (page - 1) * limit;
+    return { profiles: all.slice(start, start + limit), total };
+  }
+
+  async saveListing(l: import("@/lib/domain/types").SellerListing): Promise<import("@/lib/domain/types").SellerListing> {
+    const { error, data } = await (this.supabase as any).from("seller_listings").upsert({
+      id: l.id,
+      seller_id: l.seller_id,
+      title: l.title,
+      description: (l as any).description ?? null,
+      modalities: l.modalities,
+      price_metadata: l.price_metadata as any,
+      catalog_ref: (l as any).catalog_ref ?? null,
+      license: (l as any).license ?? null,
+      availability: (l as any).availability ?? null,
+      status: l.status,
+      freshness_status: (l as any).freshness_status ?? null,
+      last_checked_at: (l as any).last_checked_at ?? null,
+    } as any).select().single();
+    if (error) throw error;
+    if (data) return {
+      id: (data as any).id,
+      seller_id: (data as any).seller_id,
+      title: (data as any).title,
+      description: (data as any).description,
+      modalities: (data as any).modalities ?? [],
+      price_metadata: (data as any).price_metadata ?? {},
+      catalog_ref: (data as any).catalog_ref,
+      license: (data as any).license,
+      availability: (data as any).availability,
+      status: (data as any).status,
+      freshness_status: (data as any).freshness_status,
+      last_checked_at: (data as any).last_checked_at,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+    return l;
+  }
+  async getListing(id: string): Promise<import("@/lib/domain/types").SellerListing | null> {
+    const { data, error } = await (this.supabase as any).from("seller_listings").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return {
+      id: (data as any).id,
+      seller_id: (data as any).seller_id,
+      title: (data as any).title,
+      description: (data as any).description,
+      modalities: (data as any).modalities ?? [],
+      price_metadata: (data as any).price_metadata ?? {},
+      catalog_ref: (data as any).catalog_ref,
+      license: (data as any).license,
+      availability: (data as any).availability,
+      status: (data as any).status,
+      freshness_status: (data as any).freshness_status,
+      last_checked_at: (data as any).last_checked_at,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+  }
+  async listListings(sellerId: string, opts?: { includeDrafts?: boolean; requesterId?: string | null }): Promise<import("@/lib/domain/types").SellerListing[]> {
+    let q = (this.supabase as any).from("seller_listings").select("*").eq("seller_id", sellerId).order("created_at", { ascending: false });
+    const { data, error } = await q;
+    if (error || !data) return [];
+    let all = (data as any[]).map((r: any) => ({
+      id: r.id,
+      seller_id: r.seller_id,
+      title: r.title,
+      description: r.description,
+      modalities: r.modalities ?? [],
+      price_metadata: r.price_metadata ?? {},
+      catalog_ref: r.catalog_ref,
+      license: r.license,
+      availability: r.availability,
+      status: r.status,
+      freshness_status: r.freshness_status,
+      last_checked_at: r.last_checked_at,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    })) as import("@/lib/domain/types").SellerListing[];
+    const isOwner = opts?.requesterId && opts.requesterId === sellerId;
+    if (!isOwner && !opts?.includeDrafts) all = all.filter(l => l.status === "active");
+    return all;
+  }
+  async deleteListing(id: string): Promise<void> {
+    await (this.supabase as any).from("seller_listings").delete().eq("id", id);
+  }
+
+  async saveInquiry(i: import("@/lib/domain/types").BuyerInquiry): Promise<import("@/lib/domain/types").BuyerInquiry> {
+    const { error, data } = await (this.supabase as any).from("buyer_inquiries").insert({
+      id: i.id,
+      workload_id: i.workload_id,
+      buyer_id: i.buyer_id,
+      seller_id: i.seller_id,
+      message: i.message,
+      budget: (i as any).budget ?? null,
+      horizon_days: (i as any).horizon_days ?? null,
+      status: i.status,
+    } as any).select().single();
+    if (error) throw error;
+    if (data) return {
+      id: (data as any).id,
+      workload_id: (data as any).workload_id,
+      buyer_id: (data as any).buyer_id,
+      seller_id: (data as any).seller_id,
+      message: (data as any).message,
+      budget: (data as any).budget,
+      horizon_days: (data as any).horizon_days,
+      status: (data as any).status,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+    return i;
+  }
+  async getInquiry(id: string): Promise<import("@/lib/domain/types").BuyerInquiry | null> {
+    const { data, error } = await (this.supabase as any).from("buyer_inquiries").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return {
+      id: (data as any).id,
+      workload_id: (data as any).workload_id,
+      buyer_id: (data as any).buyer_id,
+      seller_id: (data as any).seller_id,
+      message: (data as any).message,
+      budget: (data as any).budget,
+      horizon_days: (data as any).horizon_days,
+      status: (data as any).status,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+  }
+  async listInquiries(filters?: { buyerId?: string; sellerId?: string; workloadId?: string }): Promise<import("@/lib/domain/types").BuyerInquiry[]> {
+    let q = (this.supabase as any).from("buyer_inquiries").select("*").order("created_at", { ascending: false }).limit(100);
+    if (filters?.buyerId) q = q.eq("buyer_id", filters.buyerId);
+    if (filters?.sellerId) q = q.eq("seller_id", filters.sellerId);
+    if (filters?.workloadId) q = q.eq("workload_id", filters.workloadId);
+    const { data, error } = await q;
+    if (error || !data) return [];
+    return (data as any[]).map((r: any) => ({
+      id: r.id,
+      workload_id: r.workload_id,
+      buyer_id: r.buyer_id,
+      seller_id: r.seller_id,
+      message: r.message,
+      budget: r.budget,
+      horizon_days: r.horizon_days,
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    })) as import("@/lib/domain/types").BuyerInquiry[];
+  }
+  async updateInquiryStatus(id: string, status: import("@/lib/domain/types").InquiryStatus): Promise<import("@/lib/domain/types").BuyerInquiry | null> {
+    const { data, error } = await (this.supabase as any).from("buyer_inquiries").update({ status }).eq("id", id).select().single();
+    if (error || !data) return null;
+    return {
+      id: (data as any).id,
+      workload_id: (data as any).workload_id,
+      buyer_id: (data as any).buyer_id,
+      seller_id: (data as any).seller_id,
+      message: (data as any).message,
+      budget: (data as any).budget,
+      horizon_days: (data as any).horizon_days,
+      status: (data as any).status,
+      created_at: (data as any).created_at,
+      updated_at: (data as any).updated_at,
+    } as any;
+  }
 }
