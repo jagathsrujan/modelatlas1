@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Nav } from "@/components/Nav";
@@ -24,6 +24,10 @@ function ExploreNewPageInner() {
   const [rawInput, setRawInput] = useState("");
   const [transcript, setTranscript] = useState("");
   const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const [workload, setWorkload] = useState<Partial<WorkloadProfile> | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [nextQ, setNextQ] = useState<string | null>(null);
@@ -114,6 +118,73 @@ function ExploreNewPageInner() {
     params.set("step", String(n));
     router.push(`?${params.toString()}`);
   };
+
+  const handleStartRecording = async () => {
+    setTranscribeError(null);
+    setRecording(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        if (blob.size < 800) {
+          setTranscribeError("Audio too short — please try again or type.");
+          setTranscribing(false);
+          setRecording(false);
+          return;
+        }
+        setTranscribing(true);
+        try {
+          const form = new FormData();
+          form.append("audio", blob, "recording.webm");
+          const res = await fetch(`/api/transcribe?sessionId=sess-${Date.now().toString(36)}`, {
+            method: "POST",
+            body: form,
+          });
+          if (!res.ok) throw new Error(await res.text().catch(() => "Transcribe failed"));
+          const data = (await res.json()) as { transcript: string; language?: string; confidence?: number };
+          const text = data.transcript || "";
+          setRawInput(text);
+          setTranscript(text);
+          const norm = normalizeWorkload(text);
+          setWorkload(norm.profile as WorkloadProfile);
+          setMissing(norm.missingFields);
+          setNextQ(norm.nextQuestion);
+        } catch (e) {
+          setTranscribeError(e instanceof Error ? e.message : "Transcription failed — please type. Typed fallback always available.");
+        } finally {
+          setTranscribing(false);
+          setRecording(false);
+        }
+      };
+      recorder.start();
+    } catch (e) {
+      setTranscribeError("Microphone not available — please type. " + (e instanceof Error ? e.message : String(e)));
+      setRecording(false);
+    }
+  };
+
+  const handleStopRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state === "recording") {
+      rec.stop();
+    } else {
+      setRecording(false);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      try { mediaRecorderRef.current?.stream?.getTracks().forEach((t) => (t as MediaStreamTrack).stop()); } catch {}
+    };
+  }, []);
 
   const handleTranscriptFill = () => {
     setRawInput(DEMO_TRANSCRIPT);
@@ -235,23 +306,26 @@ function ExploreNewPageInner() {
               <div className="rounded-2xl border bg-zinc-50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
-                    onMouseDown={() => setRecording(true)}
-                    onMouseUp={() => setRecording(false)}
-                    onTouchStart={() => setRecording(true)}
-                    onTouchEnd={() => setRecording(false)}
-                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition ${recording ? "bg-red-600 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
+                    onMouseDown={handleStartRecording}
+                    onMouseUp={handleStopRecording}
+                    onTouchStart={handleStartRecording}
+                    onTouchEnd={handleStopRecording}
+                    onMouseLeave={handleStopRecording}
+                    disabled={transcribing}
+                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition ${recording ? "bg-red-600 text-white" : transcribing ? "bg-zinc-700 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800"} disabled:opacity-60`}
                   >
-                    <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : "bg-red-400"}`} />
-                    {recording ? "Recording… hold to keep" : "Hold to talk (push-to-talk)"}
+                    <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : transcribing ? "animate-pulse bg-amber-300" : "bg-red-400"}`} />
+                    {transcribing ? "Transcribing…" : recording ? "Recording… hold to keep" : "Hold to talk (push-to-talk)"}
                   </button>
-                  <span className="text-xs text-zinc-500">{recording ? "Listening — release to stop" : "or just type below — typed fallback always works"}</span>
+                  <span className="text-xs text-zinc-500">{transcribing ? "Sending to Whisper/Parakeet…" : recording ? "Listening — release to stop" : "or just type below — typed fallback always works"}</span>
                 </div>
-                <div className={`mt-3 flex h-10 items-center gap-1 overflow-hidden rounded-xl border bg-white px-3 ${recording ? "opacity-100" : "opacity-60"}`}>
+                <div className={`mt-3 flex h-10 items-center gap-1 overflow-hidden rounded-xl border bg-white px-3 ${recording ? "opacity-100" : transcribing ? "opacity-90" : "opacity-60"}`}>
                   {Array.from({ length: 28 }).map((_, i) => (
-                    <span key={i} className={`flex-1 rounded-full bg-zinc-900 ${recording ? "animate-pulse" : ""}`} style={{ height: `${recording ? 12 + ((i * 7) % 20) : 8}px` }} />
+                    <span key={i} className={`flex-1 rounded-full bg-zinc-900 ${recording || transcribing ? "animate-pulse" : ""}`} style={{ height: `${recording ? 12 + ((i * 7) % 20) : transcribing ? 10 + ((i * 3) % 12) : 8}px` }} />
                   ))}
-                  <span className="ml-2 text-xs text-zinc-500">{recording ? "● live" : "idle"}</span>
+                  <span className="ml-2 text-xs text-zinc-500">{recording ? "● live" : transcribing ? "… transcribing" : "idle"}</span>
                 </div>
+                {transcribeError && <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">{transcribeError}</div>}
                 {isDemo && (
                   <button onClick={handleTranscriptFill} className="mt-3 w-full rounded-full border bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 sm:w-auto">
                     ✦ Prefill seeded finance scenario transcript
