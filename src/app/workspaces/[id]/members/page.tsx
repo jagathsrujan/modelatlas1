@@ -1,9 +1,7 @@
 "use client";
-import { Suspense } from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Nav } from "@/components/Nav";
-import { DemoBanner } from "@/components/DemoBanner";
+import { WorkspaceShell } from "@/components/WorkspaceShell";
 import { localRepository } from "@/lib/persistence/local-repository";
 import { TEAM_WORKLOAD_PROFILES } from "@/lib/data/seed";
 import type { WorkloadProfile } from "@/lib/domain/types";
@@ -27,48 +25,46 @@ function WorkspaceMembersPageInner() {
   const toggle = (pid: string) => setVisibility((prev) => ({ ...prev, [pid]: prev[pid] === "shared" ? "private" : "shared" }));
 
   return (
-    <div className="min-h-screen bg-[#fcfcfa]">
-      <Nav />
-      <DemoBanner />
-      <main className="mx-auto max-w-6xl px-6 py-6 sm:px-6">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">Members & consent — {id}</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-5 text-zinc-600">Detailed profiles are private by default. A member must explicitly share their profile before it contributes to team opportunities. No surveillance, no performance scoring.</p>
-        <div className="mt-3 inline-flex rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">Aggregated view shows only the grouped “Document Intelligence” pattern — not individual performance.</div>
+    <WorkspaceShell
+      rightRail={
+        <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+          <div className="text-xs font-semibold text-zinc-900 dark:text-white">Privacy note</div>
+          <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">Aggregated view shows only the grouped “Document Intelligence” pattern — not individual performance. No scoring, no surveillance.</p>
+          <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-800/50 dark:text-emerald-200">3 profiles · private by default</div>
+        </div>
+      }
+    >
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Members</h1>
+        <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400">Aggregated role insights only — detailed profiles stay private unless shared.</p>
+      </div>
 
-        <div className="mt-6 space-y-4">
-          {profiles.map((p) => {
-            const vis = visibility[p.id] ?? "private";
-            const isPrivate = vis === "private";
-            return (
-              <div key={p.id} className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${isPrivate ? "" : "ring-1 ring-emerald-200"}`}>
-                <div className={`flex flex-wrap items-center gap-2 px-5 py-3 ${isPrivate ? "bg-zinc-50" : "bg-emerald-50"}`}>
-                  <h3 className="text-sm font-semibold text-zinc-900">{p.roles.join(", ")}</h3>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isPrivate ? "bg-zinc-900 text-white" : "bg-emerald-600 text-white"}`}>{vis}</span>
-                  <span className="rounded-full bg-white px-2.5 py-1 text-xs text-zinc-600 border">{p.data_sensitivity} · {p.requests_per_day} req/day · {p.input_modalities.join(", ")}</span>
-                  <button onClick={() => toggle(p.id)} className={`ml-auto rounded-full px-4 py-1.5 text-xs font-semibold ${isPrivate ? "bg-zinc-900 text-white hover:bg-zinc-800" : "bg-white border text-zinc-700 hover:bg-zinc-50"}`}>
-                    {isPrivate ? "Share this profile" : "Make private"}
-                  </button>
-                </div>
-                <div className="grid gap-4 p-5 text-xs leading-5 text-zinc-700 sm:grid-cols-2">
-                  <div><span className="font-semibold text-zinc-900">Recurring tasks:</span> {p.description.slice(0, 320)}</div>
-                  <div className="space-y-1">
-                    <div><span className="font-semibold text-zinc-900">Data types:</span> {p.input_modalities.join(", ")} → {p.output_modalities.join(", ")}</div>
-                    <div><span className="font-semibold text-zinc-900">Tools:</span> PDFs, spreadsheets, product images, internal docs</div>
-                    <div><span className="font-semibold text-zinc-900">Pain:</span> manual lookup, duplication, missed deadlines</div>
-                    <div><span className="font-semibold text-zinc-900">Horizon:</span> {p.comparison_horizon} · Budget: {p.budget?.amount?.toLocaleString()} {p.budget?.currency}</div>
-                  </div>
-                </div>
-                <div className="px-5 pb-4">
-                  <div className={`rounded-xl px-3 py-2 text-xs leading-5 ${isPrivate ? "bg-amber-50 text-amber-900 border border-amber-200" : "bg-emerald-50 text-emerald-900 border border-emerald-200"}`}>
-                    {isPrivate ? "Visible only to its owner on this page. Team overview shows only the aggregated “Shared Document Intelligence” opportunity." : "Shared — now contributes to the aggregated opportunity (with your consent). Revoke anytime."}
-                  </div>
+      <div className="space-y-3">
+        {profiles.map((p) => {
+          const vis = visibility[p.id] ?? "private";
+          const isPrivate = vis === "private";
+          return (
+            <div key={p.id} className={`rounded-xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 ${isPrivate ? "" : "ring-1 ring-emerald-200 dark:ring-emerald-800"}`}>
+              <div className={`flex flex-wrap items-center gap-2 px-4 py-3 border-b dark:border-zinc-800 ${isPrivate ? "bg-zinc-50 dark:bg-zinc-800/50" : "bg-emerald-50 dark:bg-emerald-950/20"}`}>
+                <span className="text-sm font-medium text-zinc-900 dark:text-white">{p.roles.join(", ")}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${isPrivate ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-emerald-600 text-white border-emerald-600"}`}>{vis}</span>
+                <span className="rounded-full bg-white border px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700">{p.data_sensitivity}</span>
+                <button onClick={() => toggle(p.id)} className={`ml-auto rounded-full px-3 py-1.5 text-xs font-medium ${isPrivate ? "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900" : "bg-white border text-zinc-700 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white"}`}>
+                  {isPrivate ? "Share" : "Make private"}
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="text-sm font-medium text-zinc-900 dark:text-white">{p.title}</div>
+                <div className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400 line-clamp-2">{p.description.slice(0, 180)}…</div>
+                <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${isPrivate ? "bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800/50 dark:text-amber-200" : "bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-800/50 dark:text-emerald-200"}`}>
+                  {isPrivate ? "Private — only visible to owner. Team overview shows aggregated pattern." : "Shared — contributes to opportunity. Revoke anytime."}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </main>
-    </div>
+            </div>
+          );
+        })}
+      </div>
+    </WorkspaceShell>
   );
 }
 

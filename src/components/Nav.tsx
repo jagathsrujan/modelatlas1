@@ -1,13 +1,27 @@
 "use client";
 import Link from "next/link";
-import { Suspense } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { createClient } from "@/lib/supabase/client";
 
 function NavInner() {
   const pathname = usePathname();
   const sp = useSearchParams();
+  const router = useRouter();
   const q = sp.toString() ? `?${sp.toString()}` : "";
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+  };
   const items = [
     { href: "/", label: "Home" },
     { href: "/explore/new", label: "Personal Explorer" },
@@ -21,7 +35,6 @@ function NavInner() {
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-zinc-900 dark:bg-white text-[11px] font-bold tracking-widest text-white dark:text-zinc-900">MA</span>
           <span className="hidden sm:inline">
             <span className="text-[15px] font-semibold tracking-tight text-zinc-900 dark:text-white">ModelAtlas</span>
-            <span className="ml-1.5 rounded-full bg-zinc-900 dark:bg-white px-1.5 py-0.5 text-[10px] font-medium leading-none text-white dark:text-zinc-900 align-middle">V1</span>
           </span>
         </Link>
         <div className="hidden items-center gap-1 md:flex">
@@ -52,12 +65,23 @@ function NavInner() {
           })}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Link href={`/explore/new?demo=true&autostart=1`} className="hidden items-center gap-1 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-600 sm:inline-flex">
-            <span aria-hidden>✦</span> Try seeded demo
-          </Link>
-          <Link href={`/explore/new?demo=true&autostart=1`} className="rounded-full bg-zinc-900 dark:bg-white px-3 py-1.5 text-xs font-semibold text-white dark:text-zinc-900 sm:hidden">
-            Demo →
-          </Link>
+          {user ? (
+            <>
+              <span className="hidden sm:inline text-xs text-zinc-600 dark:text-zinc-400">{user.email?.split("@")[0]}</span>
+              <Link href="/onboarding" className="hidden sm:inline rounded-full border bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">Workspace</Link>
+              <button onClick={handleSignOut} className="rounded-full border bg-white px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">Sign out</button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="hidden sm:inline rounded-full border bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">Sign in</Link>
+              <Link href={`/explore/new?demo=true&autostart=1`} className="hidden items-center gap-1 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-600 sm:inline-flex">
+                <span aria-hidden>✦</span> Try seeded demo
+              </Link>
+              <Link href={`/explore/new?demo=true&autostart=1`} className="rounded-full bg-zinc-900 dark:bg-white px-3 py-1.5 text-xs font-semibold text-white dark:text-zinc-900 sm:hidden">
+                Demo →
+              </Link>
+            </>
+          )}
           <ThemeToggle />
         </div>
       </div>

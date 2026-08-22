@@ -9,7 +9,7 @@ export function ResearchScoutPanel({ brief, onRetry }: { brief: ResearchBrief; o
       <div className="flex flex-wrap items-center gap-2 bg-sky-50 px-4 py-3">
         <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-bold text-white">Research Scout</span>
         <span className="text-xs text-zinc-600">bounded retrieval · citations · source tiers</span>
-        <span className="ml-auto rounded-full bg-white px-2.5 py-1 text-xs text-zinc-600 border">Checked {new Date(brief.checked_at).toLocaleString()} · {brief.scope.slice(0, 55)}…</span>
+        <span className="ml-auto rounded-full bg-white px-2.5 py-1 text-xs text-zinc-600 border" suppressHydrationWarning>Checked {new Date(brief.checked_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · {brief.scope.slice(0, 55)}…</span>
       </div>
       {brief.conflicts.length > 0 && <div className="border-y bg-amber-50 px-4 py-2 text-xs text-amber-900">Conflicts: {brief.conflicts.join(" · ")}</div>}
       <div className="grid gap-6 p-4 sm:grid-cols-5">
@@ -25,7 +25,7 @@ export function ResearchScoutPanel({ brief, onRetry }: { brief: ResearchBrief; o
                     {c.source_title}
                   </a>
                   {c.publisher_or_author && <span className="rounded-full bg-white px-2 py-0.5 text-zinc-600 border">{c.publisher_or_author}</span>}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-zinc-500 border">retrieved {new Date(c.retrieved_at).toLocaleDateString()}</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-zinc-500 border" suppressHydrationWarning>retrieved {new Date(c.retrieved_at).toLocaleDateString("en-IN")}</span>
                   <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-white">{(c.confidence * 100).toFixed(0)}% · {c.fact_type}</span>
                 </div>
                 <div className="mt-2 rounded-lg bg-white p-2.5 text-xs italic leading-5 text-zinc-700">“{c.quoted_or_extracted_evidence}”</div>

@@ -1,10 +1,9 @@
 "use client";
-import { Suspense } from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Nav } from "@/components/Nav";
-import { DemoBanner } from "@/components/DemoBanner";
+import { WorkspaceShell } from "@/components/WorkspaceShell";
+import { TrustSummary } from "@/components/TrustSummary";
 import { localRepository } from "@/lib/persistence/local-repository";
 import { TEAM_WORKLOAD_PROFILES, TEAM_OPPORTUNITY_SEED } from "@/lib/data/seed";
 import type { TeamOpportunity } from "@/lib/domain/types";
@@ -14,6 +13,7 @@ function WorkspaceOverviewPageInner() {
   const sp = useSearchParams();
   const q = sp.toString() ? `?${sp.toString()}` : "";
   const [opps, setOpps] = useState<TeamOpportunity[]>([TEAM_OPPORTUNITY_SEED]);
+  const [activeTab, setActiveTab] = useState<"summary" | "topologies" | "costs" | "risks" | "verification" | "implementation">("summary");
 
   useEffect(() => {
     localRepository.listOpportunities(id).then((list) => {
@@ -25,94 +25,157 @@ function WorkspaceOverviewPageInner() {
     });
   }, [id]);
 
+  const opp = opps[0] ?? TEAM_OPPORTUNITY_SEED;
+
   return (
-    <div className="min-h-screen bg-[#fcfcfa]">
-      <Nav />
-      <DemoBanner />
-      <main className="mx-auto max-w-6xl px-6 py-6 sm:px-6">
+    <WorkspaceShell
+      workspaceName="Astra Manufacturing Pvt. Ltd."
+      rightRail={
+        <>
+          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="text-xs font-semibold text-zinc-900 dark:text-white">Confidence</div>
+            <div className="mt-1 text-2xl font-bold text-zinc-900 dark:text-white">92%</div>
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">High confidence</div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div className="h-1.5 w-[92%] rounded-full bg-[#F97316]" />
+            </div>
+            <div className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">Based on your inputs, data sensitivity, and verified inventory.</div>
+          </div>
+          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-zinc-900 dark:text-white">Verification tasks</div>
+              <span className="text-xs text-zinc-500">5 of 6 completed</span>
+            </div>
+            <ul className="mt-3 space-y-2 text-xs">
+              {[
+                ["Network check", "Verified"],
+                ["Runtime check", "Verified"],
+                ["Power headroom", "Verified"],
+                ["Cooling capacity", "Verified"],
+                ["Model compatibility", "Verified"],
+                ["End-to-end test", "Pending"],
+              ].map(([label, status]) => (
+                <li key={label} className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className={`h-4 w-4 grid place-items-center rounded-full text-[10px] ${status === "Verified" ? "bg-emerald-500 text-white" : "border border-zinc-300 text-zinc-400"}`}>{status === "Verified" ? "✓" : "○"}</span>
+                    {label}
+                  </span>
+                  <span className={status === "Verified" ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-zinc-500"}>{status}</span>
+                </li>
+              ))}
+            </ul>
+            <button className="mt-3 text-xs font-medium text-[#F97316] hover:underline">View all tasks →</button>
+          </div>
+          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="text-xs font-semibold text-zinc-900 dark:text-white">Next steps</div>
+            <ol className="mt-3 space-y-2 text-xs leading-5">
+              <li className="flex gap-2"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#F97316] text-white text-xs font-bold">1</span><span><span className="font-medium text-zinc-900 dark:text-white">Review this opportunity</span><br /><span className="text-zinc-600 dark:text-zinc-400">Confirm success metrics.</span></span></li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 place-items-center rounded-full border text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">2</span><span>Choose a topology</span></li>
+              <li className="flex gap-2"><span className="grid h-5 w-5 place-items-center rounded-full border text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">3</span><span>Generate implementation plan</span></li>
+            </ol>
+            <Link href={`/workspaces/${id}/plans/plan-demo${q}`} className="mt-4 block w-full rounded-full bg-[#F97316] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-orange-600">Review opportunity →</Link>
+          </div>
+        </>
+      }
+    >
+      <div className="rounded-xl border bg-white p-5 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">Workspace — {id}</h1>
-            <p className="mt-1 text-sm leading-5 text-zinc-600">Team overview + shared opportunities · private-by-default profiles · aggregated patterns without performance scoring.</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Shared Document Intelligence</h1>
+              <span className="rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800">HIGH IMPACT</span>
+            </div>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-400">Use a secure, local AI pipeline to process documents across Finance, Operations, and Support.</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <span>Created May 20, 2025</span><span>·</span><span>Updated May 20, 2025 10:42 AM</span><span>·</span><span>Owner You</span>
+            </div>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800 border border-emerald-200">AT-2 · 3 profiles seeded</span>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Link href={`/workspaces/${id}/members${q}`} className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Members & roles →</Link>
-          <Link href={`/workspaces/${id}/inventory${q}`} className="rounded-full border bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Hardware inventory →</Link>
-          <Link href={`/settings/policies${q}`} className="rounded-full border bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Policies →</Link>
-          <Link href={`/workspaces/${id}/plans/plan-demo${q}`} className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">View implementation plan →</Link>
+        <div className="mt-6 flex gap-1 border-b overflow-x-auto dark:border-zinc-800">
+          {(["summary", "topologies", "costs", "risks", "verification", "implementation"] as const).map((t) => (
+            <button key={t} onClick={() => setActiveTab(t)} className={`whitespace-nowrap px-3 py-2 text-xs font-medium capitalize border-b-2 ${activeTab === t ? "border-[#F97316] text-[#F97316]" : "border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400"}`}>
+              {t}
+            </button>
+          ))}
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <h2 className="text-sm font-semibold text-zinc-900">Shared opportunities</h2>
-            <p className="text-xs leading-5 text-zinc-500">Grouped by workflow pattern — what was found, how many roles affected, data sensitivity, uncertainty. No employee scoring.</p>
-            <div className="mt-3 space-y-4">
-              {opps.map((o) => (
-                <Link key={o.id} href={`/workspaces/${id}/plans/plan-demo${q}`} className="group block overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md">
-                  <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-sky-500" />
-                  <div className="p-5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-[15px] font-semibold leading-tight text-zinc-900 group-hover:underline">{o.title}</h3>
-                      <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white">{o.shared_privacy_classification}</span>
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">{o.contributing_profile_count} roles</span>
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 border border-emerald-200">{(o.confidence * 100).toFixed(0)}% confidence</span>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-zinc-700">{o.summary}</p>
-                    <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-                      <span className="rounded-full bg-zinc-50 px-2.5 py-1 text-zinc-700 border"><span className="font-medium">Affected:</span> {o.affected_roles.join(", ")}</span>
-                      <span className="rounded-full bg-zinc-50 px-2.5 py-1 text-zinc-700 border"><span className="font-medium">Data:</span> {o.shared_data_types.join(", ")}</span>
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800 border border-emerald-200">{o.estimated_impact}</span>
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800 border border-amber-200">Profiles: {o.source_profile_visibility} by default</span>
-                    </div>
-                    <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">Select opportunity → generate implementation plan →</div>
+        {activeTab === "summary" && (
+          <div className="mt-6 space-y-6">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">Opportunity summary</h2>
+              <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">Centralize and understand documents across Finance, Operations, and Support — reducing manual effort, improving accuracy, and accelerating response times.</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-5 text-xs">
+              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="text-zinc-500">Affected roles</div>
+                <div className="mt-1 font-medium text-zinc-900 dark:text-white">Finance<br />Operations<br />Support</div>
+              </div>
+              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="text-zinc-500">Data sources</div>
+                <div className="mt-1 font-medium text-zinc-900 dark:text-white">Invoices, spreadsheets, product images, internal documents</div>
+              </div>
+              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="text-zinc-500">Privacy</div>
+                <div className="mt-1 font-medium text-zinc-900 dark:text-white">Confidential</div>
+                <div className="text-zinc-500">No external APIs</div>
+              </div>
+              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="text-zinc-500">Est. impact</div>
+                <div className="mt-1 font-medium text-zinc-900 dark:text-white">~35–50% reduction in manual effort</div>
+              </div>
+              <div className="rounded-lg border bg-[#F7F5F0] px-3 py-3 dark:bg-zinc-800 dark:border-zinc-700">
+                <div className="text-zinc-500">Confidence</div>
+                <div className="mt-1 font-bold text-zinc-900 dark:text-white">92%</div>
+                <div className="mt-1 h-1 w-full rounded-full bg-zinc-200 dark:bg-zinc-700"><div className="h-1 w-[92%] rounded-full bg-[#F97316]" /></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+              <div className="text-sm font-semibold text-zinc-900 dark:text-white">Recommended topology</div>
+              <div className="text-xs text-zinc-500">Optimized for accuracy, privacy, and total cost of ownership.</div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-5 text-xs">
+                {[
+                  { t: "Data sources", d: "Invoices\nSpreadsheets\nProduct images\nInternal documents" },
+                  { t: "Ingest & Process", d: "OCR, parsing,\nchunking, embedding" },
+                  { t: "RAG Retrieval", d: "Local vector store\n+ re-ranking", active: true },
+                  { t: "LLM Inference", d: "Local model serving\n(quantized)" },
+                  { t: "Applications", d: "Search, Q&A,\nsummaries,\nworkflows" },
+                ].map((s) => (
+                  <div key={s.t} className={`rounded-lg border p-3 text-center ${s.active ? "border-[#F97316] bg-orange-50 dark:bg-orange-950/20" : "bg-[#F7F5F0] dark:bg-zinc-800 dark:border-zinc-700"}`}>
+                    <div className={`text-xs font-semibold ${s.active ? "text-[#F97316]" : "text-zinc-700 dark:text-zinc-300"}`}>{s.t}</div>
+                    <div className="mt-1 whitespace-pre-line text-zinc-600 dark:text-zinc-400">{s.d}</div>
                   </div>
-                </Link>
-              ))}
-            </div>
-            <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-5 text-sky-900">
-              <span className="font-semibold">How aggregation works:</span> says what pattern was found, how many roles it affects, what data sensitivity applies and what remains uncertain. Individual detailed profiles stay private unless a member explicitly shares them.
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-zinc-900">Members — private by default</h3>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">Each member submits role + recurring tasks + data + pain + intended AI use. Explicit share required to appear in team view.</p>
-              <ul className="mt-3 space-y-2.5">
-                {TEAM_WORKLOAD_PROFILES.map((p) => (
-                  <li key={p.id} className="rounded-xl border bg-zinc-50 p-3">
-                    <div className="text-xs font-semibold text-zinc-900">{p.roles.join(", ")}</div>
-                    <div className="text-xs font-medium text-zinc-700">{p.title.slice(0, 48)}</div>
-                    <div className="mt-1 line-clamp-2 text-xs leading-4 text-zinc-600">{p.description.slice(0, 130)}…</div>
-                    <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
-                      <span className="rounded-full bg-white px-2 py-0.5 border text-zinc-700">{p.data_sensitivity}</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 border text-zinc-700">{p.requests_per_day} req/day</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 border text-zinc-700">{p.input_modalities.join(", ")}</span>
-                    </div>
-                    <div className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-800 border border-amber-200">Detailed profile private by default — only aggregated pattern shown</div>
-                  </li>
                 ))}
-              </ul>
-              <Link href={`/workspaces/${id}/members${q}`} className="mt-3 inline-flex text-xs font-medium text-sky-700 hover:underline">Manage consent & visibility →</Link>
+              </div>
+              <div className="mt-3 flex gap-4 text-xs text-zinc-500">
+                <span>● Data stays within your infrastructure</span><span>● Built for scale and reliability</span><span>● Verifiable and observable pipeline</span>
+              </div>
             </div>
 
-            <div className="rounded-2xl border bg-zinc-900 p-5 text-white">
-              <h3 className="text-sm font-semibold">Next steps</h3>
-              <ol className="mt-2 space-y-1.5 text-xs leading-5 text-zinc-300">
-                <li className="flex gap-2"><span className="font-bold text-white">1.</span> Invite members (demo: 3 seeded)</li>
-                <li className="flex gap-2"><span className="font-bold text-white">2.</span> Each member confirms private profile</li>
-                <li className="flex gap-2"><span className="font-bold text-white">3.</span> Review aggregated opportunity</li>
-                <li className="flex gap-2"><span className="font-bold text-white">4.</span> Generate implementation plan</li>
-                <li className="flex gap-2"><span className="font-bold text-white">5.</span> Approve per workspace policy</li>
-              </ol>
+            <div className="flex gap-6 text-xs">
+              <Link href={`/workspaces/${id}/inventory${q}`} className="font-medium text-zinc-700 hover:underline dark:text-zinc-300">View hardware options →</Link>
+              <Link href="#" className="font-medium text-zinc-700 hover:underline dark:text-zinc-300">Compare alternative topologies →</Link>
             </div>
+
+            <TrustSummary confidence={92} sources={12} freshness="Checked today" privacyAligned verificationRemaining={1} />
           </div>
-        </div>
-      </main>
-    </div>
+        )}
+
+        {activeTab !== "summary" && (
+          <div className="mt-6 rounded-xl border bg-white p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="text-sm font-medium text-zinc-900 dark:text-white capitalize">{activeTab}</div>
+            <div className="mt-1 text-xs text-zinc-500">Content for {activeTab} — costs, risks, verification tasks and implementation steps are in this workspace.</div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 flex items-center justify-between border-t pt-4 text-xs dark:border-zinc-800">
+        <span className="text-zinc-500">Plan preset <span className="font-medium text-zinc-900 dark:text-white">Privacy / Local-First</span></span>
+        <span className="font-mono text-zinc-500">OPP-2025-05-20-001</span>
+      </div>
+    </WorkspaceShell>
   );
 }
 

@@ -1,26 +1,29 @@
 "use client";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DemoBanner } from "@/components/DemoBanner";
-import { Nav } from "@/components/Nav";
+import { DecisionShell } from "@/components/DecisionShell";
 import { DecisionCopilotPanel } from "@/components/DecisionCopilotPanel";
-import { WizardProgress, YourInputsSummary } from "@/components/WizardProgress";
+import { StickyActionBar } from "@/components/StickyActionBar";
 import { normalizeWorkload } from "@/lib/domain/workload-normalizer";
 import { DEMO_TRANSCRIPT } from "@/lib/data/seed";
 import { localRepository } from "@/lib/persistence/local-repository";
-import { loadDraft, saveDraft, clampStep, type WizardStep } from "@/lib/wizard/wizard-state";
+import { loadDraft, saveDraft } from "@/lib/wizard/wizard-state";
 import type { WorkloadProfile } from "@/lib/domain/types";
 
 const WIZARD_KEY = "ma_explore_new_draft";
+const OUTCOMES = [
+  { id: "extract", label: "Extract and structure data", desc: "From documents, emails, and files" },
+  { id: "search", label: "Understand and search", desc: "Semantic search, Q&A, summarization" },
+  { id: "automate", label: "Automate workflows", desc: "Validation, approvals, posting, alerts" },
+  { id: "analyze", label: "Analyze and generate content", desc: "Reports, insights, and communications" },
+] as const;
 
 function ExploreNewPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const isDemo = sp.get("demo") === "true";
-  const rawStep = sp.get("step");
-  const requestedStep = rawStep ? parseInt(rawStep, 10) : 1;
+  const [stage, setStage] = useState<1 | 2>(1); // 1 Work, 2 Privacy
 
-  // draft persisted in sessionStorage + React state
   const [rawInput, setRawInput] = useState("");
   const [transcript, setTranscript] = useState("");
   const [recording, setRecording] = useState(false);
@@ -32,210 +35,86 @@ function ExploreNewPageInner() {
   const [missing, setMissing] = useState<string[]>([]);
   const [nextQ, setNextQ] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedOutcome, setSelectedOutcome] = useState<string>("extract");
+  const [privacy, setPrivacy] = useState<WorkloadProfile["data_sensitivity"]>("confidential");
 
-  // load from sessionStorage on mount (survives reload / Back)
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(WIZARD_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.rawInput) {
-          setRawInput(parsed.rawInput);
-          setTranscript(parsed.transcript ?? parsed.rawInput);
-        }
-        if (parsed.workload) {
-          setWorkload(parsed.workload);
-          setMissing(parsed.missing ?? []);
-          setNextQ(parsed.nextQ ?? null);
-        }
+        if (parsed.rawInput) { setRawInput(parsed.rawInput); setTranscript(parsed.transcript ?? parsed.rawInput); }
+        if (parsed.workload) { setWorkload(parsed.workload); setMissing(parsed.missing ?? []); setNextQ(parsed.nextQ ?? null); if (parsed.workload.data_sensitivity) setPrivacy(parsed.workload.data_sensitivity); }
+        if (parsed.selectedOutcome) setSelectedOutcome(parsed.selectedOutcome);
+        if (parsed.stage) setStage(parsed.stage);
       } else if (isDemo && sp.get("autostart") === "1" && !rawInput) {
-        // seeded demo: prefill transcript but stay on step 1
-        setRawInput(DEMO_TRANSCRIPT);
-        setTranscript(DEMO_TRANSCRIPT);
+        setRawInput(DEMO_TRANSCRIPT); setTranscript(DEMO_TRANSCRIPT);
         const norm = normalizeWorkload(DEMO_TRANSCRIPT);
-        setWorkload(norm.profile as WorkloadProfile);
-        setMissing(norm.missingFields);
-        setNextQ(norm.nextQuestion);
-        // persist it too so reload keeps it
-        try {
-          sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ rawInput: DEMO_TRANSCRIPT, transcript: DEMO_TRANSCRIPT, workload: norm.profile, missing: norm.missingFields, nextQ: norm.nextQuestion }));
-        } catch {}
-        // also bump wizard completedUpTo to 0 (still need to click Extract)
-        const d = loadDraft();
-        if (d.completedUpTo < 0) saveDraft({ completedUpTo: 0 });
+        setWorkload(norm.profile as WorkloadProfile); setMissing(norm.missingFields); setNextQ(norm.nextQuestion);
+        try { sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ rawInput: DEMO_TRANSCRIPT, transcript: DEMO_TRANSCRIPT, workload: norm.profile, missing: norm.missingFields, nextQ: norm.nextQuestion, selectedOutcome: "extract", stage: 1 })); } catch {}
+        const d = loadDraft(); if (d.completedUpTo < 0) saveDraft({ completedUpTo: 0 });
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // persist to sessionStorage on changes
   useEffect(() => {
-    try {
-      sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ rawInput, transcript, workload, missing, nextQ }));
-    } catch {}
-  }, [rawInput, transcript, workload, missing, nextQ]);
+    try { sessionStorage.setItem(WIZARD_KEY, JSON.stringify({ rawInput, transcript, workload, missing, nextQ, selectedOutcome, stage })); } catch {}
+  }, [rawInput, transcript, workload, missing, nextQ, selectedOutcome, stage]);
 
-  // also sync to wizard global draft for progress locking
   useEffect(() => {
     if (workload) {
       const d = loadDraft();
-      // after extract, step 1 is considered done (completedUpTo at least 1)
       if (d.completedUpTo < 1) saveDraft({ rawInput, transcript, completedUpTo: 1 });
       else saveDraft({ rawInput, transcript });
     }
   }, [workload, rawInput, transcript]);
 
-  const [completedUpTo, setCompletedUpTo] = useState(0);
-  useEffect(() => { setCompletedUpTo(loadDraft().completedUpTo); }, [workload, rawInput]);
-  // determine current step, clamped
-  const currentStep: WizardStep = useMemo(() => {
-    const fallback: WizardStep = workload ? 2 : 1;
-    const clamped = clampStep(requestedStep || fallback, completedUpTo, fallback);
-    // but for this route only 1-2 are valid; if clamped is 3+, keep at 2 max until navigation to next route
-    if (clamped > 2) return 2;
-    if (clamped < 1) return 1;
-    return clamped as WizardStep;
-  }, [requestedStep, completedUpTo, workload]);
-
-  // if URL step is out of sync due to clamp (e.g., user typed ?step=2 before completing 1), correct URL
-  useEffect(() => {
-    const urlStep = rawStep ? parseInt(rawStep, 10) : null;
-    if (urlStep !== currentStep) {
-      const params = new URLSearchParams(sp.toString());
-      params.set("step", String(currentStep));
-      if (isDemo) params.set("demo", "true");
-      if (sp.get("autostart") === "1") params.set("autostart", "1");
-      router.replace(`?${params.toString()}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
-
-  const goToStep = (n: 1 | 2) => {
-    const d = loadDraft();
-    const allowed = n <= d.completedUpTo + 1;
-    if (!allowed) return;
-    const params = new URLSearchParams(sp.toString());
-    params.set("step", String(n));
-    router.push(`?${params.toString()}`);
-  };
-
   const handleStartRecording = async () => {
-    setTranscribeError(null);
-    setRecording(true);
+    setTranscribeError(null); setRecording(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
+      mediaRecorderRef.current = recorder; chunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        if (blob.size < 800) {
-          setTranscribeError("Audio too short — please try again or type.");
-          setTranscribing(false);
-          setRecording(false);
-          return;
-        }
+        if (blob.size < 800) { setTranscribeError("Audio too short — please try again or type."); setTranscribing(false); setRecording(false); return; }
         setTranscribing(true);
         try {
-          const form = new FormData();
-          form.append("audio", blob, "recording.webm");
-          const res = await fetch(`/api/transcribe?sessionId=sess-${Date.now().toString(36)}`, {
-            method: "POST",
-            body: form,
-          });
+          const form = new FormData(); form.append("audio", blob, "recording.webm");
+          const res = await fetch(`/api/transcribe?sessionId=sess-${Date.now().toString(36)}`, { method: "POST", body: form });
           if (!res.ok) throw new Error(await res.text().catch(() => "Transcribe failed"));
-          const data = (await res.json()) as { transcript: string; language?: string; confidence?: number };
+          const data = (await res.json()) as { transcript: string };
           const text = data.transcript || "";
-          setRawInput(text);
-          setTranscript(text);
-          const norm = normalizeWorkload(text);
-          setWorkload(norm.profile as WorkloadProfile);
-          setMissing(norm.missingFields);
-          setNextQ(norm.nextQuestion);
-        } catch (e) {
-          setTranscribeError(e instanceof Error ? e.message : "Transcription failed — please type. Typed fallback always available.");
-        } finally {
-          setTranscribing(false);
-          setRecording(false);
-        }
+          setRawInput(text); setTranscript(text);
+          const norm = normalizeWorkload(text); setWorkload(norm.profile as WorkloadProfile); setMissing(norm.missingFields); setNextQ(norm.nextQuestion);
+        } catch (e) { setTranscribeError(e instanceof Error ? e.message : "Transcription failed — please type."); } finally { setTranscribing(false); setRecording(false); }
       };
       recorder.start();
-    } catch (e) {
-      setTranscribeError("Microphone not available — please type. " + (e instanceof Error ? e.message : String(e)));
-      setRecording(false);
-    }
+    } catch (e) { setTranscribeError("Microphone not available — please type. " + (e instanceof Error ? e.message : String(e))); setRecording(false); }
   };
+  const handleStopRecording = () => { const rec = mediaRecorderRef.current; if (rec && rec.state === "recording") rec.stop(); else setRecording(false); };
+  useEffect(() => { return () => { try { mediaRecorderRef.current?.stream?.getTracks().forEach((t) => (t as MediaStreamTrack).stop()); } catch {} }; }, []);
 
-  const handleStopRecording = () => {
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state === "recording") {
-      rec.stop();
-    } else {
-      setRecording(false);
-    }
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      try { mediaRecorderRef.current?.stream?.getTracks().forEach((t) => (t as MediaStreamTrack).stop()); } catch {}
-    };
-  }, []);
-
-  const handleTranscriptFill = () => {
-    setRawInput(DEMO_TRANSCRIPT);
-    setTranscript(DEMO_TRANSCRIPT);
-    const norm = normalizeWorkload(DEMO_TRANSCRIPT);
-    setWorkload(norm.profile as WorkloadProfile);
-    setMissing(norm.missingFields);
-    setNextQ(norm.nextQuestion);
-  };
-
+  const handleTranscriptFill = () => { setRawInput(DEMO_TRANSCRIPT); setTranscript(DEMO_TRANSCRIPT); const norm = normalizeWorkload(DEMO_TRANSCRIPT); setWorkload(norm.profile as WorkloadProfile); setMissing(norm.missingFields); setNextQ(norm.nextQuestion); };
   const handleNormalizeAndContinue = () => {
-    const text = rawInput || transcript;
-    if (!text.trim()) return;
-    const norm = normalizeWorkload(text);
-    setWorkload(norm.profile as WorkloadProfile);
-    setMissing(norm.missingFields);
-    setNextQ(norm.nextQuestion);
-    saveDraft({ rawInput: text, transcript: text, completedUpTo: 1 });
-    setCompletedUpTo(1);
-    // navigate to step 2 — browser history entry so Back works
-    const params = new URLSearchParams(sp.toString());
-    params.set("step", "2");
-    router.push(`?${params.toString()}`);
+    const text = rawInput || transcript; if (!text.trim()) return;
+    const norm = normalizeWorkload(text); setWorkload(norm.profile as WorkloadProfile); setMissing(norm.missingFields); setNextQ(norm.nextQuestion);
+    // stay on Work stage, but show What I understood
   };
 
-  const handleAnswer = (answer: string) => {
-    const combined = `${rawInput} ${answer}`;
-    setRawInput(combined);
-    setTranscript(combined);
-    const norm = normalizeWorkload(combined);
-    setWorkload(norm.profile as WorkloadProfile);
-    setMissing(norm.missingFields);
-    setNextQ(norm.nextQuestion);
-  };
-
-  const updateField = (key: keyof WorkloadProfile, value: unknown) => {
+  const handleContinueToPrivacy = () => {
     if (!workload) return;
-    const next = { ...workload, [key]: value, updated_at: new Date().toISOString() } as Partial<WorkloadProfile>;
-    setWorkload(next);
-    const newMissing = [...missing];
-    for (const f of ["budget", "country", "comparison_horizon"] as const) {
-      if (key === f && value) {
-        const idx = newMissing.indexOf(f);
-        if (idx >= 0) newMissing.splice(idx, 1);
-      }
-    }
-    setMissing(newMissing);
-    if (newMissing.length === 0) setNextQ(null);
+    const text = rawInput || transcript;
+    const norm = normalizeWorkload(text);
+    const w = norm.profile as WorkloadProfile;
+    setWorkload(w); setPrivacy(w.data_sensitivity as WorkloadProfile["data_sensitivity"]);
+    setStage(2);
+    saveDraft({ rawInput: text, transcript: text, completedUpTo: 1 });
   };
 
-  const handleConfirm = async () => {
+  const handlePrivacyContinue = async () => {
     if (!workload) return;
     setSaving(true);
     const full: WorkloadProfile = {
@@ -245,7 +124,7 @@ function ExploreNewPageInner() {
       roles: (workload.roles as string[]) ?? [],
       input_modalities: (workload.input_modalities as string[]) ?? ["text", "image"],
       output_modalities: (workload.output_modalities as string[]) ?? ["text"],
-      data_sensitivity: (workload.data_sensitivity as WorkloadProfile["data_sensitivity"]) ?? "confidential",
+      data_sensitivity: privacy,
       expected_users: workload.expected_users as number | null,
       requests_per_day: workload.requests_per_day as number | null,
       average_input_size: workload.average_input_size as string | null,
@@ -253,9 +132,9 @@ function ExploreNewPageInner() {
       hours_per_day: workload.hours_per_day as number | null,
       growth_assumption: workload.growth_assumption as string | null,
       budget: workload.budget as WorkloadProfile["budget"],
-      country: workload.country as string | null,
-      comparison_horizon: workload.comparison_horizon as string | null,
-      comparison_horizon_days: workload.comparison_horizon_days as number | null,
+      country: (workload.country as string) ?? "IN",
+      comparison_horizon: (workload.comparison_horizon as string) ?? "12 months",
+      comparison_horizon_days: (workload.comparison_horizon_days as number | null) ?? 365,
       ranking_preset: workload.ranking_preset as WorkloadProfile["ranking_preset"],
       confirmed_at: new Date().toISOString(),
       assumptions: (workload.assumptions as string[]) ?? [],
@@ -263,19 +142,7 @@ function ExploreNewPageInner() {
       updated_at: new Date().toISOString(),
     };
     await localRepository.saveWorkload(full);
-    await localRepository.saveSession({
-      id: `sess-${Date.now().toString(36)}`,
-      mode: "personal" as const,
-      status: "PROFILE_CONFIRMED" as const,
-      confirmed_profile_version: full.id,
-      privacy_classification: full.data_sensitivity,
-      selected_preset: (full.ranking_preset as never) ?? "privacy_local_first",
-      step_count: 3,
-      started_at: new Date().toISOString(),
-      completed_at: null,
-      assumptions: full.assumptions,
-    } as never);
-    // mark wizard step 2 done
+    await localRepository.saveSession({ id: `sess-${Date.now().toString(36)}`, mode: "personal" as const, status: "PROFILE_CONFIRMED" as const, confirmed_profile_version: full.id, privacy_classification: full.data_sensitivity, selected_preset: (full.ranking_preset as never) ?? "privacy_local_first", step_count: 3, started_at: new Date().toISOString(), completed_at: null, assumptions: full.assumptions } as never);
     saveDraft({ workloadId: full.id, completedUpTo: 2, rawInput, transcript });
     try { sessionStorage.removeItem(WIZARD_KEY); } catch {}
     setSaving(false);
@@ -283,194 +150,187 @@ function ExploreNewPageInner() {
     router.push(`/explore/profiles/${full.id}${q}`);
   };
 
-  // completedUpTo already defined above
+  const understood = useMemo(() => {
+    if (!workload) return null;
+    const w = workload as Partial<WorkloadProfile>;
+    return {
+      goal: w.title || "Document processing",
+      inputs: (w.input_modalities as string[] | undefined)?.join(" · ") || "text · image",
+      users: w.expected_users ? `${w.expected_users} users` : "Not specified",
+      volume: w.requests_per_day ? `${w.requests_per_day}/day` : "Not specified",
+    };
+  }, [workload]);
+
+  const copilotContent = stage === 1 ? (
+    <DecisionCopilotPanel step="intake" trace={["workload normalization — goal, modalities"]} provenance={["local deterministic service"]} freshness="curated — not live" assumptions={["Demo uses curated fixture"]} />
+  ) : (
+    <DecisionCopilotPanel step="clarification" trace={["privacy gate — confidentiality check"]} provenance={["curated_fixture"]} freshness="curated — not live" />
+  );
 
   return (
-    <div className="min-h-screen bg-[#fcfcfa]">
-      <Nav />
-      <DemoBanner />
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <WizardProgress current={currentStep} completedUpTo={completedUpTo} onStepClick={(n) => n <= 2 && goToStep(n as 1 | 2)} />
+    <DecisionShell
+      stage={stage === 1 ? 1 : 2}
+      sessionName={isDemo ? "Demo session" : "New decision"}
+      onSaveDraft={() => saveDraft({ rawInput, transcript })}
+      copilot={copilotContent}
+    >
+      {stage === 1 ? (
+        <>
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Describe the work</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">What are you trying to build or run? Use plain language — no model names needed.</p>
+          </div>
 
-        {/* Step 1: intake only */}
-        {currentStep === 1 && (
-          <div className="mt-6">
-            <div className="flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">1</span>
-              <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl">Describe the work</h1>
-              <span className="ml-auto rounded-full border bg-white px-2.5 py-1 text-xs text-zinc-600">Voice / text intake only</span>
-            </div>
-            <p className="mt-2 text-sm leading-5 text-zinc-600">Push-to-talk is optional. Your transcript stays editable before submission — raw audio is deleted by default.</p>
-
-            <div className="mt-5 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="rounded-2xl border bg-zinc-50 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    onMouseDown={handleStartRecording}
-                    onMouseUp={handleStopRecording}
-                    onTouchStart={handleStartRecording}
-                    onTouchEnd={handleStopRecording}
-                    onMouseLeave={handleStopRecording}
-                    disabled={transcribing}
-                    className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition ${recording ? "bg-red-600 text-white" : transcribing ? "bg-zinc-700 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800"} disabled:opacity-60`}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : transcribing ? "animate-pulse bg-amber-300" : "bg-red-400"}`} />
-                    {transcribing ? "Transcribing…" : recording ? "Recording… hold to keep" : "Hold to talk (push-to-talk)"}
-                  </button>
-                  <span className="text-xs text-zinc-500">{transcribing ? "Sending to Whisper/Parakeet…" : recording ? "Listening — release to stop" : "or just type below — typed fallback always works"}</span>
-                </div>
-                <div className={`mt-3 flex h-10 items-center gap-1 overflow-hidden rounded-xl border bg-white px-3 ${recording ? "opacity-100" : transcribing ? "opacity-90" : "opacity-60"}`}>
-                  {Array.from({ length: 28 }).map((_, i) => (
-                    <span key={i} className={`flex-1 rounded-full bg-zinc-900 ${recording || transcribing ? "animate-pulse" : ""}`} style={{ height: `${recording ? 12 + ((i * 7) % 20) : transcribing ? 10 + ((i * 3) % 12) : 8}px` }} />
-                  ))}
-                  <span className="ml-2 text-xs text-zinc-500">{recording ? "● live" : transcribing ? "… transcribing" : "idle"}</span>
-                </div>
-                {transcribeError && <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">{transcribeError}</div>}
-                {isDemo && (
-                  <button onClick={handleTranscriptFill} className="mt-3 w-full rounded-full border bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 sm:w-auto">
-                    ✦ Prefill seeded finance scenario transcript
-                  </button>
-                )}
-              </div>
-
-              <label className="mt-5 block text-xs font-semibold text-zinc-700">Transcript — editable before submission <span className="font-normal text-zinc-500">(FR-02)</span></label>
-              <textarea
-                value={rawInput}
-                onChange={(e) => {
-                  setRawInput(e.target.value);
-                  setTranscript(e.target.value);
-                }}
-                placeholder="Example: We run a small manufacturing company in Pune. Finance processes 300–400 invoices/day (PDFs and photos)…"
-                className="mt-1.5 h-44 w-full rounded-2xl border bg-zinc-50 px-4 py-3 text-sm leading-6 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-900/10"
-              />
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
-                <span className={`rounded-full px-2.5 py-1 ${transcript ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-zinc-100"}`}>Audio status: {transcript ? "transcribed — editable" : "no audio — typed fallback ready"}</span>
-                <span className="rounded-full bg-zinc-100 px-2.5 py-1">No model terminology required</span>
-              </div>
-
-              <button onClick={handleNormalizeAndContinue} disabled={!rawInput.trim()} className="mt-5 w-full rounded-full bg-zinc-900 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed">
-                Extract facts and continue
+          <div className="rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800 sm:p-6">
+            <label className="text-xs font-semibold text-zinc-900 dark:text-white">Workload description</label>
+            <textarea
+              value={rawInput}
+              onChange={(e) => { setRawInput(e.target.value); setTranscript(e.target.value); }}
+              placeholder="I need a system that processes invoices and other scanned paperwork from email and shared drives, extracts key fields (vendor, date, totals, line items), validates against our business rules, and posts to our ERP. It also needs to handle spreadsheets with financial data and product catalog images for our e-commerce team. Accuracy and data privacy are critical."
+              className="mt-2 h-40 w-full rounded-xl border bg-[#F7F5F0] px-4 py-3 text-sm leading-6 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316] dark:bg-zinc-800 dark:border-zinc-700 dark:text-white"
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onMouseDown={handleStartRecording}
+                onMouseUp={handleStopRecording}
+                onTouchStart={handleStartRecording}
+                onTouchEnd={handleStopRecording}
+                onMouseLeave={handleStopRecording}
+                disabled={transcribing}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition ${recording ? "bg-red-600 text-white" : transcribing ? "bg-zinc-700 text-white" : "bg-white border text-zinc-700 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300"}`}
+              >
+                <span className={`h-2 w-2 rounded-full ${recording ? "animate-pulse bg-white" : "bg-red-400"}`} /> Hold to talk
               </button>
-              <p className="mt-2 text-center text-xs text-zinc-500">Advances to <span className="font-medium">Step 2 — Confirm workload</span> (changes URL, Back works, reload keeps draft).</p>
+              <span className="text-xs text-zinc-500">{transcribing ? "Transcribing…" : "or type above"}</span>
+              {transcribeError && <span className="text-xs text-amber-700">{transcribeError}</span>}
             </div>
-
-            <div className="mt-4">
-              <DecisionCopilotPanel
-                step="intake"
-                trace={["workload normalization — goal, modalities"]}
-                provenance={["local deterministic service"]}
-                freshness={"curated — not live"}
-                assumptions={["Demo mode uses curated fixture"]}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: confirm workload only */}
-        {currentStep === 2 && workload && (
-          <div className="mt-6">
-            <div className="flex items-center gap-2">
-              <button onClick={() => goToStep(1)} className="rounded-full border bg-white px-3 py-1 text-xs font-medium hover:bg-zinc-50">← Back to intake</button>
-              <span className="ml-auto rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">{missing.length === 0 ? "✓ Ready to confirm" : `Missing: ${missing.join(", ")}`}</span>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">2</span>
-              <h1 className="text-lg font-bold tracking-tight text-zinc-900 sm:text-xl">Confirm workload</h1>
-            </div>
-            <p className="mt-1 text-xs text-zinc-500">Unknown = “Not specified” — never invented. Edit any field; human approval required before ranking.</p>
-
-            <div className="mt-4 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Goal / Title" value={(workload.title as string) ?? ""} onChange={(v) => updateField("title", v)} />
-                <FieldChips label="Inputs" value={(workload.input_modalities as string[]) ?? []} options={["text", "image", "spreadsheet", "audio", "video"]} onChange={(v) => updateField("input_modalities", v)} />
-                <Field label="Outputs" value={((workload.output_modalities as string[]) ?? []).join(", ")} onChange={(v) => updateField("output_modalities", v.split(",").map((s) => s.trim()).filter(Boolean))} />
-                <Field label="Expected users" value={workload.expected_users != null ? String(workload.expected_users) : "Not specified"} onChange={(v) => updateField("expected_users", v === "Not specified" ? null : parseInt(v, 10) || null)} isMissing={missing.includes("expected_users")} />
-                <Field label="Requests per day" value={workload.requests_per_day != null ? String(workload.requests_per_day) : "Not specified"} onChange={(v) => updateField("requests_per_day", v === "Not specified" ? null : parseInt(v, 10) || null)} isMissing={missing.includes("requests_per_day")} />
-                <FieldPrivacy label="Privacy (requires confirmation)" value={(workload.data_sensitivity as string) ?? "Not specified"} onChange={(v) => updateField("data_sensitivity", v)} />
-                <Field label="Budget" value={workload.budget?.amount ? `${workload.budget.currency} ${workload.budget.amount.toLocaleString()}` : "Not specified"} onChange={(v) => { if (v==="Not specified") updateField("budget", undefined); else { const num=parseInt(v.replace(/[^0-9]/g,""),10); updateField("budget", { amount: isNaN(num)?null:num, currency: v.includes("USD")?"USD":v.includes("CNY")?"CNY":"INR"}); } }} isMissing={missing.includes("budget")} hint="Landed total compares against this" />
-                <Field label="Country" value={workload.country ?? "Not specified"} onChange={(v) => updateField("country", v === "Not specified" ? null : v)} isMissing={missing.includes("country")} />
-                <Field label="Comparison horizon" value={workload.comparison_horizon ?? "Not specified"} onChange={(v) => { if (v==="Not specified") { updateField("comparison_horizon", null); updateField("comparison_horizon_days", null); } else { updateField("comparison_horizon", v); const m=v.match(/(\d+)/); updateField("comparison_horizon_days", m?parseInt(m[1],10)*30:365); } }} isMissing={missing.includes("comparison_horizon")} />
-                <Field label="Hours per day" value={workload.hours_per_day != null ? String(workload.hours_per_day) : "Not specified"} onChange={(v) => updateField("hours_per_day", v==="Not specified"?null:parseInt(v,10)||null)} hint="For electricity estimate" />
-                <Field label="Average input size" value={workload.average_input_size ?? "Not specified"} onChange={(v) => updateField("average_input_size", v==="Not specified"?null:v)} />
-                <Field label="Growth assumption" value={workload.growth_assumption ?? "Not specified"} onChange={(v) => updateField("growth_assumption", v==="Not specified"?null:v)} />
-              </div>
-
-              {missing.length > 0 && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">We need one more detail before we can rank options. <span className="font-medium">{nextQ}</span></div>}
-
-              <div className="mt-6">
-                <YourInputsSummary items={[{ label: "Transcript", value: rawInput.slice(0, 90) + (rawInput.length>90?"…":"") }]} />
-              </div>
-
-              <button onClick={handleConfirm} disabled={saving} className="mt-6 w-full rounded-full bg-emerald-600 px-7 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50">
-                {saving ? "Saving…" : "Confirm workload"}
+            {isDemo && (
+              <button onClick={handleTranscriptFill} className="mt-3 text-xs font-medium text-[#F97316] hover:underline">
+                Use seeded scenario → Invoices + spreadsheets + product images (Pune, 400/d)
               </button>
-              <p className="mt-2 text-center text-xs text-zinc-500">Creates the profile and goes to <span className="font-medium">Step 3 — Confirm hardware</span>. Back returns to Step 1 without losing transcript.</p>
-            </div>
+            )}
+          </div>
 
-            <div className="mt-4">
-              <DecisionCopilotPanel
-                step="clarification"
-                question={nextQ}
-                trace={["privacy classification suggestion + user confirmation", "budget & horizon validation for direct-cost calculator"]}
-                provenance={["curated_fixture · local deterministic service"]}
-                freshness={"curated — not live"}
-                assumptions={(workload?.assumptions as string[]) ?? ["Demo mode uses curated fixture"]}
-                onAnswer={handleAnswer}
-              />
+          {workload && understood && (
+            <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+              <div className="text-xs font-semibold text-zinc-900 dark:text-white">What I understood</div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3 text-xs">
+                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
+                  <div className="text-zinc-500">Goal</div>
+                  <div className="font-medium text-zinc-900 dark:text-white">{understood.goal}</div>
+                </div>
+                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
+                  <div className="text-zinc-500">Inputs</div>
+                  <div className="font-medium text-zinc-900 dark:text-white">{understood.inputs}</div>
+                </div>
+                <div className="rounded-lg border bg-[#F7F5F0] px-3 py-2 dark:bg-zinc-800 dark:border-zinc-700">
+                  <div className="text-zinc-500">Volume</div>
+                  <div className="font-medium text-zinc-900 dark:text-white">{understood.volume}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6">
+            <div className="text-xs font-semibold text-zinc-900 dark:text-white">What are you trying to achieve?</div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {OUTCOMES.map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => setSelectedOutcome(o.id)}
+                  className={`rounded-xl border p-4 text-left transition ${selectedOutcome === o.id ? "border-[#F97316] bg-orange-50 dark:bg-orange-950/20" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800"}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={`mt-0.5 grid h-5 w-5 place-items-center rounded-full border text-xs ${selectedOutcome === o.id ? "bg-[#F97316] border-[#F97316] text-white" : "border-zinc-300 text-zinc-400"}`}>✓</span>
+                    <div>
+                      <div className="text-sm font-medium text-zinc-900 dark:text-white">{o.label}</div>
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400">{o.desc}</div>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {currentStep === 2 && !workload && (
-          <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
-            <p className="text-sm font-medium text-amber-900">No workload yet.</p>
-            <p className="mt-1 text-xs text-zinc-600">Go back to Step 1 and extract facts first.</p>
-            <button onClick={() => goToStep(1)} className="mt-3 rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white">← Back to Step 1</button>
+          {workload && (
+            <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+              <div className="text-xs font-semibold text-zinc-900 dark:text-white">Compact extracted facts</div>
+              <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Budget</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.budget?.amount ? `${workload.budget.currency} ${workload.budget.amount.toLocaleString()}` : "Not specified"}</dd></div>
+                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Country</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.country ?? "IN"}</dd></div>
+                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Horizon</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.comparison_horizon ?? "12 months"}</dd></div>
+                <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><dt className="text-zinc-500">Users</dt><dd className="font-medium text-zinc-900 dark:text-white">{workload.expected_users ?? "6"}</dd></div>
+              </dl>
+            </div>
+          )}
+
+          <StickyActionBar
+            primary={
+              <button
+                onClick={handleContinueToPrivacy}
+                disabled={!rawInput.trim() || !workload}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#F97316] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40"
+              >
+                Continue to Privacy <span aria-hidden>→</span>
+              </button>
+            }
+            secondary={
+              <button onClick={() => saveDraft({ rawInput, transcript })} className="rounded-full border bg-white px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white">Save draft</button>
+            }
+            hint="Next: set privacy constraints — confidential excludes external APIs"
+          />
+        </>
+      ) : (
+        <>
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">Set privacy</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-400">Choose how sensitive your data is. This is a hard filter — it removes ineligible options before ranking.</p>
           </div>
-        )}
-      </main>
-    </div>
-  );
-}
 
-function Field({ label, value, onChange, isMissing, hint }: { label: string; value: string; onChange: (v: string) => void; isMissing?: boolean; hint?: string }) {
-  return (
-    <label className="block">
-      <span className="text-xs font-semibold text-zinc-700">{label} {isMissing && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-800">required</span>} {hint && <span className="font-normal text-zinc-400">· {hint}</span>}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className={`mt-1.5 w-full rounded-xl border px-3.5 py-2.5 text-sm ${isMissing ? "border-amber-300 bg-amber-50 focus:ring-amber-200" : "border-zinc-200 bg-zinc-50 focus:bg-white"} focus:outline-none focus:ring-2`} />
-    </label>
-  );
-}
-function FieldChips({ label, value, options, onChange }: { label: string; value: string[]; options: string[]; onChange: (v: string[]) => void }) {
-  const toggle = (o: string) => {
-    if (value.includes(o)) onChange(value.filter((x) => x !== o));
-    else onChange([...value, o]);
-  };
-  return (
-    <div>
-      <span className="text-xs font-semibold text-zinc-700">{label}</span>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {options.map((o) => (
-          <button key={o} type="button" onClick={() => toggle(o)} className={`rounded-full border px-2.5 py-1 text-xs font-medium ${value.includes(o) ? "bg-zinc-900 text-white border-zinc-900" : "bg-zinc-50 text-zinc-600 hover:bg-white"}`}>{o}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-function FieldPrivacy({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const opts = ["public", "internal", "confidential", "highly_sensitive"] as const;
-  return (
-    <div>
-      <span className="text-xs font-semibold text-zinc-700">{label}</span>
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-        {opts.map((o) => (
-          <button key={o} type="button" onClick={() => onChange(o)} className={`rounded-xl border px-2.5 py-2 text-left text-xs ${value === o ? "bg-zinc-900 text-white border-zinc-900" : "bg-zinc-50 text-zinc-700 hover:bg-white"}`}>
-            <div className="font-semibold">{o}</div>
-            <div className="text-[11px] opacity-70">{o === "confidential" ? "excludes external APIs" : o === "highly_sensitive" ? "local only" : o === "internal" ? "team-only" : "any hosting"}</div>
-          </button>
-        ))}
-      </div>
-    </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { id: "public", title: "Public", desc: "Shareable data", detail: "Any hosting, including public APIs" },
+              { id: "internal", title: "Internal", desc: "Team-only data", detail: "Approved team APIs and private hosting" },
+              { id: "confidential", title: "Confidential", desc: "Sensitive business data", detail: "External APIs excluded", highlight: true },
+              { id: "highly_sensitive", title: "Highly sensitive", desc: "Regulated data", detail: "Local-only, no external calls" },
+            ].map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPrivacy(p.id as WorkloadProfile["data_sensitivity"])}
+                className={`rounded-xl border p-4 text-left ${privacy === p.id ? "border-[#F97316] bg-orange-50 dark:bg-orange-950/20" : "border-zinc-200 bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800"} ${p.highlight ? "ring-1 ring-[#F97316]/20" : ""}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="text-sm font-semibold text-zinc-900 dark:text-white">{p.title}</div>
+                  {privacy === p.id && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#F97316] text-white text-xs">✓</span>}
+                </div>
+                <div className="text-xs text-zinc-600 dark:text-zinc-400">{p.desc}</div>
+                <div className={`mt-2 text-xs font-medium ${p.id === "confidential" ? "text-[#F97316]" : "text-zinc-500"}`}>{p.detail}</div>
+                {p.id === "confidential" && <div className="mt-2 rounded-lg bg-white border px-2.5 py-1.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">Confidential → External APIs excluded, even under Maximum Performance</div>}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 rounded-xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+            <div className="text-xs font-semibold text-zinc-900 dark:text-white">Privacy summary</div>
+            <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Data classification</span><span className="font-medium capitalize text-zinc-900 dark:text-white">{privacy.replace("_", " ")}</span></div>
+              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Hosting</span><span className="font-medium text-zinc-900 dark:text-white">{privacy === "confidential" || privacy === "highly_sensitive" ? "Self-hosted, local-first" : "Any approved"}</span></div>
+              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">External API</span><span className={`font-medium ${privacy === "confidential" || privacy === "highly_sensitive" ? "text-amber-700" : "text-emerald-700"}`}>{privacy === "confidential" || privacy === "highly_sensitive" ? "Excluded" : "Allowed"}</span></div>
+              <div className="flex justify-between border-b py-1.5 dark:border-zinc-800"><span className="text-zinc-500">Data residency</span><span className="font-medium text-zinc-900 dark:text-white">On-prem or private cloud</span></div>
+            </div>
+          </div>
+
+          <StickyActionBar
+            primary={
+              <button onClick={handlePrivacyContinue} disabled={saving} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#F97316] px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-40">
+                {saving ? "Saving…" : "Continue to Hardware"} <span aria-hidden>→</span>
+              </button>
+            }
+            secondary={<button onClick={() => setStage(1)} className="rounded-full border bg-white px-4 py-2.5 text-sm font-medium hover:bg-zinc-50 dark:bg-zinc-800 dark:text-white">Back to Work</button>}
+          />
+        </>
+      )}
+    </DecisionShell>
   );
 }
 
