@@ -29,6 +29,8 @@ const RecommendationsRequestSchema = z.object({
   condition: z.string().optional(),
   // Optional session id to persist recommendations under
   sessionId: z.string().optional(),
+  // Opt-in AI re-rank (overrides workspace policy for testing/demo)
+  allowAiRerank: z.boolean().optional(),
 });
 
 async function loadWorkload(workloadId: string, isDemo: boolean): Promise<WorkloadProfile | null> {
@@ -100,7 +102,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { workloadId, preset, hardwareAssetIds, workspaceId, includeMarketplace, country, condition, sessionId } = parsed.data;
+  const { workloadId, preset, hardwareAssetIds, workspaceId, includeMarketplace, country, condition, sessionId, allowAiRerank } = parsed.data as any;
   const isDemo = parsed.data.demo ?? isDemoQuery;
 
   // Auth — allow demo without auth; for live, warn but still proceed with fallback per ROADMAP §4
@@ -217,7 +219,54 @@ export async function POST(req: NextRequest) {
     hardwareAssets,
     preset,
   };
-  const { recommendations, excluded } = rankOptions(rankInput);
+  const { recommendations: baseRecs, excluded } = rankOptions(rankInput);
+  // 6b) Optional AI re-rank (opt-in via workspace policy allow_ai_rerank or request override) — only within eligible set, ±0.15 max, validated
+  let recommendations = baseRecs;
+  let aiBoosts: import("@/lib/domain/ai-reranker").AiRerankBoost[] | null = null;
+  let aiApplied: import("@/lib/domain/ai-reranker").AiRerankBoost[] = [];
+  const effectiveAllowAi = (allowAiRerank as boolean | undefined) ?? (policy as any)?.allow_ai_rerank ?? false;
+  console.log(`[recommendations] allowAiRerank=${allowAiRerank} policy.allow_ai_rerank=${(policy as any)?.allow_ai_rerank} effectiveAllowAi=${effectiveAllowAi} isDemo=${isDemo}`);
+  const effectivePolicyForAi = effectiveAllowAi ? ({ ...(policy ?? {}), allow_ai_rerank: true } as WorkspacePolicy) : policy;
+  if (effectiveAllowAi) {
+    try {
+      console.log(`[recommendations] calling AI reranker for ${workload.id} preset=${preset} eligible=${baseRecs.length}`);
+      const { getAiRerankBoosts, applyAiBoosts } = await import("@/lib/domain/ai-reranker");
+      const eligibleForAi = baseRecs.map(r => ({ id: r.candidate_id, name: r.candidate_id, type: r.candidate_type, score: r.total_score ?? 0 }));
+      const hardwareSummaryAi = hardwareAssets.map(h => `${h.name} (${h.gpu ?? h.cpu}, ${h.system_memory_gb}GB)`).join("; ").slice(0, 400);
+      aiBoosts = await getAiRerankBoosts({
+        workload,
+        policy: effectivePolicyForAi,
+        eligible: eligibleForAi,
+        preset,
+        hardwareSummary: hardwareSummaryAi,
+        isDemo,
+      });
+      console.log(`[recommendations] aiBoosts`, aiBoosts);
+      if (aiBoosts) {
+        const applied = applyAiBoosts(baseRecs, aiBoosts);
+        recommendations = applied.recs;
+        aiApplied = applied.applied;
+        // Audit: record boosts as trace when authenticated
+        if (isAuthenticated && !isDemo && aiApplied.length > 0) {
+          try {
+            const supabase = await createClient();
+            await (supabase as any).from("agent_traces").insert({
+              session_id: sessionId ?? `rec-${workloadId}`,
+              step_index: 0,
+              model_provider: "ai-reranker",
+              action_type: "present_result",
+              tool_name: "rank_options",
+              validated_arguments: { aiBoosts: aiApplied } as any,
+              result_reference: `AI boosts: ${aiApplied.map(b=> `${b.candidate_id} ${b.boost}`).join(", ")}`,
+              latency_ms: 0,
+            });
+          } catch {}
+        }
+      }
+    } catch (e) {
+      console.warn("[recommendations] ai rerank failed, keeping deterministic", (e as Error).message);
+    }
+  }
 
   // 7) Direct cost for primary recommendation (for plan-generator) — deterministic, lines separate
   const primary = recommendations[0];
@@ -295,7 +344,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     workloadId,
     preset,
-    policy: policy ? { workspace_id: policy.workspace_id, maximum_privacy_classification: policy.maximum_privacy_classification } : null,
+    policy: policy ? { workspace_id: policy.workspace_id, maximum_privacy_classification: policy.maximum_privacy_classification, allow_ai_rerank: (policy as any).allow_ai_rerank ?? false } : null,
     provenance: {
       catalog: { provider: catalogRes.provenance.provider, count: catalogRes.models.length, isFallback: catalogRes.isFallback, errors: catalogRes.provenance.errors },
       marketplace: marketplaceProvenance ? { ...marketplaceProvenance, isFallback: isMarketplaceFallback } : null,
@@ -304,13 +353,14 @@ export async function POST(req: NextRequest) {
     clusterPlan,
     costBreakdown: costBreakdown ?? null,
     costNote,
-    recommendations, // 1 primary + ≤3 alts, deterministic
+    recommendations, // 1 primary + ≤3 alts, deterministic + optional AI boost
     excluded: excluded.map(e => ({
       candidate_id: (e.candidate as any).canonical_id ?? (e.candidate as any).id ?? (e.candidate as any).product_name ?? "unknown",
       candidate_type: "canonical_id" in (e.candidate as any) ? "catalog_model" : "marketplace_listing",
       reason: e.reason,
     })),
     plan, // 12-section ImplementationPlan
+    aiRerank: aiApplied.length > 0 ? { applied: aiApplied, enabled: true } : null,
     isDemo,
     isAuthenticated,
   });

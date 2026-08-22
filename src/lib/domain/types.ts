@@ -181,6 +181,7 @@ export const WorkspacePolicySchema = z.object({
   approved_marketplaces: z.array(z.string()).default([]),
   allowed_regions: z.array(z.string()).default([]),
   plan_approval_required: z.boolean().default(false),
+  allow_ai_rerank: z.boolean().default(false).optional(),
   updated_by: z.string().nullable().optional(),
   updated_at: z.string(),
 });

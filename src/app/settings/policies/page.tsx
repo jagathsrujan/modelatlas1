@@ -9,7 +9,7 @@ function PoliciesPageInner() {
   const [policy, setPolicy] = useState<WorkspacePolicy>(WORKSPACE_POLICIES[0]);
   const [original, setOriginal] = useState<WorkspacePolicy>(WORKSPACE_POLICIES[0]);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ privacy: true, creators: true, hosting: false, marketplaces: false, regions: false, approval: true });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ privacy: true, creators: true, hosting: false, marketplaces: false, regions: false, approval: true, ai: false });
 
   useEffect(() => {
     localRepository.getPolicy("ws-manufacturing-demo").then((p) => { if (p) { setPolicy(p); setOriginal(p); } else localRepository.savePolicy(WORKSPACE_POLICIES[0]); });
@@ -27,10 +27,10 @@ function PoliciesPageInner() {
   return (
     <WorkspaceShell>
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Policies</h1>
-        <span className="rounded-full bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white dark:bg-white dark:text-zinc-900">Hard filter</span>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Policies</h1>
+        <span className="rounded-full bg-[#0d1319] px-2.5 py-1 text-xs font-medium text-white dark:bg-white dark:text-[#0d1319]">Hard filter</span>
       </div>
-      <p className="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400">Filters are applied <span className="font-semibold text-zinc-900 dark:text-white">before</span> ranking. Empty allowlist = no restriction only when owner explicitly clears it.</p>
+      <p className="mt-2 max-w-2xl text-sm leading-5 text-[var(--muted)]">Filters are applied <span className="font-semibold text-[var(--foreground)]">before</span> ranking. Empty allowlist = no restriction only when owner explicitly clears it.</p>
 
       <div className="mt-6 rounded-xl border-2 border-[#F97316]/30 bg-orange-50 p-4 dark:bg-orange-950/20 dark:border-orange-800/50">
         <div className="text-sm font-semibold text-zinc-900 dark:text-white">Privacy hard filter — Confidential excludes external APIs</div>
@@ -84,6 +84,19 @@ function PoliciesPageInner() {
               </label>
             ),
           },
+          {
+            id: "ai",
+            title: "AI re-ranking (opt-in, within eligible set only)",
+            content: (
+              <label className="flex items-start gap-3 rounded-xl border bg-white px-4 py-3 dark:bg-zinc-900 dark:border-zinc-700">
+                <input type="checkbox" checked={(policy as any).allow_ai_rerank ?? false} onChange={(e) => setPolicy({ ...policy, allow_ai_rerank: e.target.checked } as WorkspacePolicy)} className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[#F97316] focus:ring-[#F97316]" />
+                <span className="text-sm text-zinc-900 dark:text-white">
+                  <span className="font-medium">Enable AI boost (±0.15 max)</span>
+                  <span className="block text-xs leading-5 text-zinc-600 dark:text-zinc-400">When on, AI may boost up to +0.15 (or -0.10) <span className="font-semibold text-violet-700 dark:text-violet-300">only within already-eligible candidates</span> — hard filters, freshness, policyGate still exclude first. Shows <span className="font-mono text-violet-700 dark:text-violet-300">AI boost +0.08</span> in card + <span className="font-mono">score_breakdown.ai_boost</span>. Off = fully deterministic. Privacy-aware: confidential sends metadata only.</span>
+                </span>
+              </label>
+            ),
+          },
         ].map((sec) => (
           <div key={sec.id} className="rounded-xl border bg-white dark:bg-zinc-900 dark:border-zinc-800">
             <button onClick={() => setOpenSections((s) => ({ ...s, [sec.id]: !s[sec.id] }))} className="flex w-full items-center justify-between px-4 py-3 text-left">
@@ -102,6 +115,7 @@ function PoliciesPageInner() {
           <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900 dark:bg-white" /> Creators: {policy.approved_model_creators.length > 0 ? `Only [${policy.approved_model_creators.join(", ")}]` : "No restriction — owner allows all"}</li>
           <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900 dark:bg-white" /> Marketplaces: {policy.approved_marketplaces.length > 0 ? `Only [${policy.approved_marketplaces.join(", ")}]` : "No restriction"}</li>
           <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-900 dark:bg-white" /> Approval: {policy.plan_approval_required ? "Required" : "Not required"}</li>
+          <li className="flex gap-2"><span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${(policy as any).allow_ai_rerank ? "bg-violet-600" : "bg-zinc-300 dark:bg-zinc-600"}`} /> AI re-rank: {(policy as any).allow_ai_rerank ? "On — up to +0.15 within eligible only, hard filters still win" : "Off — fully deterministic (default)"}</li>
         </ul>
       </div>
 

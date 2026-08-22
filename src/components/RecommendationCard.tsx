@@ -13,6 +13,8 @@ export function RecommendationCard({ rec, onSelect, featured }: { rec: Recommend
   const score = rec.total_score !== undefined ? Math.round(rec.total_score * 100) : 0;
   const scoreTone = score >= 90 ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-zinc-900" : score >= 75 ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300";
   const costLines = Object.entries(rec.cost_breakdown).slice(0, 6).map(([k, v]) => `${k.replace(/_/g, " ")}: ${typeof v === "number" ? v.toLocaleString() : String(v)}`);
+  const aiBoost = (rec.score_breakdown as Record<string, number>).ai_boost as number | undefined;
+  const aiBoostLabel = aiBoost !== undefined ? `AI boost ${aiBoost > 0 ? "+" : ""}${aiBoost.toFixed(2)}` : null;
 
   return (
     <div className={`rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800 shadow-sm ${featured ? "ring-1 ring-zinc-900/10 dark:ring-white/10" : ""}`}>
@@ -30,6 +32,12 @@ export function RecommendationCard({ rec, onSelect, featured }: { rec: Recommend
               )}
             </div>
             <div className="mt-1.5 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{subtitle}</div>
+            {aiBoost !== undefined && (
+              <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${aiBoost > 0 ? "bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800" : "bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}>
+                <span aria-hidden>✦</span> {aiBoostLabel} {aiBoost !== undefined && aiBoost > 0 ? "· within eligible set only" : ""}
+                <span className="font-normal opacity-80">· capped ±0.15 · hard filters still exclude</span>
+              </div>
+            )}
             {catalog && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                 {Object.entries(catalog.benchmark_summary).map(([k, v]) => (
@@ -99,8 +107,8 @@ export function RecommendationCard({ rec, onSelect, featured }: { rec: Recommend
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {Object.entries(rec.score_breakdown).map(([k, v]) => (
-            <span key={k} className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-1 text-[11px] text-zinc-600 dark:text-zinc-400 border dark:border-zinc-700">
-              {k} <span className="font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{Math.round((v as number) * 100)}</span>
+            <span key={k} className={`rounded-full px-2 py-1 text-[11px] border ${k === "ai_boost" ? "bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800 font-medium" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-700"}`}>
+              {k} <span className="font-medium tabular-nums">{k === "ai_boost" ? `${(v as number) > 0 ? "+" : ""}${(v as number).toFixed(2)}` : Math.round((v as number) * 100)}</span>
             </span>
           ))}
         </div>

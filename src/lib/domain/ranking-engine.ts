@@ -11,6 +11,8 @@ export interface RankInput {
   hardwareAssets?: HardwareAsset[];
   preset: RankingPreset;
   // optional: pre-computed eligibility will be derived
+  // aiReRank is applied AFTER deterministic ranking via src/lib/domain/ai-reranker.ts applyAiBoosts()
+  // to keep hard filters + freshness + policyGate authoritative.
 }
 
 export interface RankResult {
