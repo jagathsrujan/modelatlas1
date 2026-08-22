@@ -44,9 +44,11 @@ export interface AgentModelResponse {
 }
 
 const DEFAULT_PROVIDERS: ModelProviderConfig[] = [
+  // lmstudio is ideal for confidential (local), but on Vercel/hosted it's not available — will fallback to openrouter with sanitized metadata
   { provider: "lmstudio", model_id: "phi-3-mini-local", privacy_classifications: ["public","internal","confidential","highly_sensitive"], supported_tasks: ["extraction","clarification","tool_selection"], latency_ms_p50: 400, cost_per_1k: 0, structured_output: true },
-  { provider: "openrouter", model_id: "stealth/ox-alpha", privacy_classifications: ["public","internal"], supported_tasks: ["extraction","clarification","tool_selection","explanation"], latency_ms_p50: 800, cost_per_1k: 0.0002, structured_output: true },
-  { provider: "huggingface", model_id: "meta-llama/Llama-3.1-8B-Instruct", privacy_classifications: ["public","internal"], supported_tasks: ["explanation","tool_selection"], latency_ms_p50: 1200, cost_per_1k: 0.0003, structured_output: true },
+  // openrouter is the hosted path (Vercel/Netlify) — supports all privacy levels when sanitized, per INTEGRATIONS §3.2
+  { provider: "openrouter", model_id: "stealth/ox-alpha", privacy_classifications: ["public","internal","confidential","highly_sensitive"], supported_tasks: ["extraction","clarification","tool_selection","explanation"], latency_ms_p50: 800, cost_per_1k: 0.0002, structured_output: true },
+  { provider: "huggingface", model_id: "meta-llama/Llama-3.1-8B-Instruct", privacy_classifications: ["public","internal","confidential","highly_sensitive"], supported_tasks: ["explanation","tool_selection"], latency_ms_p50: 1200, cost_per_1k: 0.0003, structured_output: true },
 ];
 
 function sanitizePromptForPrivacy(req: AgentModelRequest): string {
@@ -79,14 +81,22 @@ export class AgentModelProvider {
         candidates = filtered;
       }
     }
-    // For confidential/highly_sensitive, prefer local and block external if no local
+    // For confidential/highly_sensitive, prefer local (lmstudio) when available (e.g., local dev), otherwise use openrouter with sanitized metadata (hosted/Vercel)
     if (privacyClassification === "confidential" || privacyClassification === "highly_sensitive") {
-      const local = candidates.find(p=> p.provider === "lmstudio");
-      if (local) return local;
-      // Also allow private endpoint if configured
+      const hasLmStudio = Boolean(process.env.LM_STUDIO_URL);
+      // On hosted (Vercel/Netlify) LM_STUDIO_URL is empty → skip local, use sanitized external
+      if (hasLmStudio) {
+        const local = candidates.find(p=> p.provider === "lmstudio");
+        if (local) return local;
+      }
       const priv = candidates.find(p=> p.provider === "private");
       if (priv) return priv;
-      return null; // block external calls when policy disallows — will fallback to curated_fixture
+      // Hosted fallback: allow openrouter/huggingface with sanitized prompt (metadata only)
+      // sanitizePromptForPrivacy will ensure no raw docs leak
+      const sanitizedExternal = candidates.find(p=> p.provider === "openrouter" || p.provider === "huggingface");
+      if (sanitizedExternal) return sanitizedExternal;
+      // If no external allowed by allowlist, block → curated_fixture
+      return null;
     }
     // Prefer structured-output capable for tool_selection
     if (taskType === "tool_selection") {
