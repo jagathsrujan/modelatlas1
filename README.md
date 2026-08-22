@@ -106,7 +106,7 @@ npm run build    # type-check + production build
 | **Tokens** | JWT `3600s` + refresh rotation `reuse 10s`, `additional_redirect_urls`, anon sign-ins **disabled** | `supabase/config.toml:164` `jwt_expiry`, `171` rotation, `177` `enable_anonymous=false` |
 | **DB guard** | **RLS enabled on every exposed table** — `workspaces, workload_profiles, hardware_assets, workspace_policies, team_opportunities, recommendations, research_briefs, watchlist_items…` `owner_id=auth.uid() OR workspace_members` | `supabase/migrations/001_core.sql:19` `42` `002_p2_intelligence.sql:35` |
 | **Storage** | `hardware-evidence` bucket `public:false` + RLS `bucket_id='hardware-evidence' AND foldername[1]=auth.uid()` | `001_core.sql:100` `103` |
-| **Keys** | `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` browser-safe (RLS still enforces) · `SUPABASE_SERVICE_ROLE_KEY` server-only `createServiceRoleClient()` never to browser | `src/lib/supabase/server.ts:55` `SECURITY.md:3` |
+| **Keys** | `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` browser-safe (RLS still enforces) · `SUPABASE_SERVICE_ROLE_KEY` server-only `createServiceRoleClient()` never to browser | `src/lib/supabase/server.ts:55` [`docs/SECURITY.md`](docs/SECURITY.md):3 |
 | **Enforcement** | Write tools `save_decision_brief/prepare_team_share` return `401` if `!isAuthenticated && !isDemo`; `POST /api/recommendations` persists via `getRepository({isDemo})` → `LocalRepository` if demo/no user else `SupabaseRepository` | `src/app/api/agent/step/route.ts:137` `src/lib/persistence/repository.ts:46` |
 | **Cloud** | `miorhjebtgwjnboawams` `ap-south-1 Mumbai` + local `supabase start` `54321/54323` | `.env.local:2` `supabase/config.toml:10` |
 | **UX** | `Nav` shows `Sign in` vs `user.email + Sign out + Workspace` `Nav.tsx:68` `75`; unauthenticated → `/onboarding` redirects to `/login` `onboarding/page.tsx:20` | |
@@ -480,7 +480,7 @@ ProviderOption · MarketplaceListing · Recommendation · ImplementationPlan
 
 Enums: `PrivacyClassification (public < internal < confidential < highly_sensitive)` · `RankingPreset (#5 presets, no sliders)` · `TopologyType (single_node | replicas | sharded_inference | distributed_training | staged_pipeline | not_recommended)` · `SourceTier · ClaimType · FreshnessStatus`.
 
-Every external fact carries `source_provider + source_url/id + retrieved/checked timestamp + data_type + confidence + attribution requirement`. See `TECHNICAL_SPEC.md` §1–2.
+Every external fact carries `source_provider + source_url/id + retrieved/checked timestamp + data_type + confidence + attribution requirement`. See [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) §1–2.
 
 ---
 
@@ -576,7 +576,7 @@ flowchart TB
     External -.->|"prompt injection ignored — evidence only"| Server
 ```
 
-**10 non-negotiables (`DECISIONS.md` D-004→D-010):**
+**10 non-negotiables ([`docs/DECISIONS.md`](docs/DECISIONS.md) D-004→D-010):**
 
 1. Deterministic baseline — recommendation works with **zero keys, zero live sources**; AI only interprets/asks/explains. 2. One bounded orchestrator (no swarm). 3. Research Scout prefers official → community signals **require labels + corroboration**. 4. Browser stack: `fetch` for static, Playwright pinned Chromium in isolated worker for JS, `agent-browser` CLI for dev only. 5. P0 first, P1 staged. 6. Marketplace is **outbound links + direct-cost/trust only** — no carts/checkout/affiliate claims. 7. Privacy is a **hard filter** (`workspace maximum > workload classification > user preference`). 8. Never fabricate prices/benchmarks/specs — every fact has the 6-field provenance. 9. Uploaded docs/listings are **untrusted evidence**, never instructions. 10. No telemetry/provisioning/queue/microservice fleet in V1.
 
@@ -605,7 +605,7 @@ npx --yes tsx ./verify_p1_final2.ts  # AT1/AT2/AT3 + scout + RLS + demo fallback
 
 **Supabase (P1):** `supabase init` + `supabase start` (`http://localhost:54323`) + `supabase/migrations/001_core.sql` (RLS) + `002_p2_intelligence.sql` (`watchlist_items`, `team_research_collections`, `research_briefs.next_refresh_at` 24h price / 72h compatibility / null benchmark, `vercel.json` cron `0 2 * * *` 02:00 IST) + `003_chat.sql` (`chat_threads`, `chat_messages` RLS `owner_id=auth.uid() OR workspace_members`). RLS: `watchlist_items` `user_id = auth.uid()`, `team_research_collections` `workspace_members` check, `research_briefs` viewer cannot read other workspace, `chat_threads/messages` same via `owner_id`.
 
-**P2 Intelligence (RESEARCH_SCOUT §12):** `watchlist_items` cron re-runs Scout `Official+benchmark` at 02:00 IST, diffs `last_checked_at` vs price/warranty/spec `>5%` → `WATCHLIST_WEBHOOK_URL` email/webhook; `team_research_collections` share brief + comment/votes; `next_refresh_at` by freshness; `regional-anomaly.ts` flags `>20%` drift across IN/US/CN landed (INR-converted) as `risk` claim (`confidence 0.72`).
+**P2 Intelligence ([`docs/RESEARCH_SCOUT.md`](docs/RESEARCH_SCOUT.md) §12):** `watchlist_items` cron re-runs Scout `Official+benchmark` at 02:00 IST, diffs `last_checked_at` vs price/warranty/spec `>5%` → `WATCHLIST_WEBHOOK_URL` email/webhook; `team_research_collections` share brief + comment/votes; `next_refresh_at` by freshness; `regional-anomaly.ts` flags `>20%` drift across IN/US/CN landed (INR-converted) as `risk` claim (`confidence 0.72`).
 
 **Polish (P2):** `?step=1..7` wizard `clampStep` + `ThemeToggle` dark mode on all 9 routes, `globals.css` `overflow-x:hidden` + `min-w-0` for 390 & 1280 no horizontal overflow, `DecisionCopilotPanel` step traces (`intake` never shows “Comparing”), procurement only on step 6, Approve only on step 7 `disabled={!selected || completedUpTo<6}`.
 
@@ -631,22 +631,22 @@ npx --yes tsx ./verify_p1_final2.ts  # AT1/AT2/AT3 + scout + RLS + demo fallback
 
 ## 📚 Source Docs
 
-This README is a *view* — the **10 spec files are source of truth** (where they conflict, they win):
+This README is a *view* — the **10 spec files are source of truth** (where they conflict, they win) — now compacted in [`docs/`](docs/):
 
 | Spec | Covers |
 |------|--------|
-| `PRD.md` | Mission, anchor scenario, FR-01..29, presets, privacy levels, cost model, AT-1..AT-3 |
-| `ARCHITECTURE.md` | Next.js+Supabase+Vercel, trust boundaries, modules, sequence diagrams, modes, security |
-| `TECHNICAL_SPEC.md` | 13 domain objects, policy precedence, pipeline, eligibility, cluster rules, preset dimensions, freshness, training-strategy, provenance |
-| `PRODUCT_SPEC.md` | Entry points, Copilot/Scout surfaces, 9-route map, flows, inventory, freshness, a11y |
-| `WORKFLOWS.md` | Personal→hardware→ranking→procurement, cluster, team conversion, opportunity aggregation, Scout, plan |
-| `AGENTIC_HARNESS.md` | State machine, 14-tool registry, loop contract, limits, JSON contract, model routing, safety, persistence |
-| `RESEARCH_SCOUT.md` | Hierarchy, adapters, query budget, evidence model, how research affects ranking |
-| `INTEGRATIONS.md` | Artificial Analysis, OpenRouter, HF, LM Studio, vLLM/MLX/DGX Spark, voice, marketplace sources, adapter contract |
-| `DEMO_SCRIPT.md` | 5–7 min run-of-show, narration, judge FAQ |
-| `DECISIONS.md` | D-001..D-010 + recommended defaults (determines P0-first order) |
+| [`docs/PRD.md`](docs/PRD.md) | Mission, anchor scenario, FR-01..29, presets, privacy levels, cost model, AT-1..AT-3 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Next.js+Supabase+Vercel, trust boundaries, modules, sequence diagrams, modes, security |
+| [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md) | 13 domain objects, policy precedence, pipeline, eligibility, cluster rules, preset dimensions, freshness, training-strategy, provenance |
+| [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) | Entry points, Copilot/Scout surfaces, 9-route map, flows, inventory, freshness, a11y |
+| [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md) | Personal→hardware→ranking→procurement, cluster, team conversion, opportunity aggregation, Scout, plan |
+| [`docs/AGENTIC_HARNESS.md`](docs/AGENTIC_HARNESS.md) | State machine, 14-tool registry, loop contract, limits, JSON contract, model routing, safety, persistence |
+| [`docs/RESEARCH_SCOUT.md`](docs/RESEARCH_SCOUT.md) | Hierarchy, adapters, query budget, evidence model, how research affects ranking |
+| [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) | Artificial Analysis, OpenRouter, HF, LM Studio, vLLM/MLX/DGX Spark, voice, marketplace sources, adapter contract |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | 5–7 min run-of-show, narration, judge FAQ |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | D-001..D-010 + recommended defaults (determines P0-first order) |
 
-> Generated from those docs in one session — see `BUILD_PROMPT.md` for the one-shot build prompt used.
+> Generated from those docs in one session — see [`docs/BUILD_PROMPT.md`](docs/BUILD_PROMPT.md) for the one-shot build prompt used. All specs live in [`docs/`](docs/) for a compact root.
 
 ---
 
