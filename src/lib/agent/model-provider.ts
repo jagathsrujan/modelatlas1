@@ -45,7 +45,7 @@ export interface AgentModelResponse {
 
 const DEFAULT_PROVIDERS: ModelProviderConfig[] = [
   { provider: "lmstudio", model_id: "phi-3-mini-local", privacy_classifications: ["public","internal","confidential","highly_sensitive"], supported_tasks: ["extraction","clarification","tool_selection"], latency_ms_p50: 400, cost_per_1k: 0, structured_output: true },
-  { provider: "openrouter", model_id: "mistral-7b-instruct", privacy_classifications: ["public","internal"], supported_tasks: ["extraction","clarification","tool_selection","explanation"], latency_ms_p50: 800, cost_per_1k: 0.0002, structured_output: true },
+  { provider: "openrouter", model_id: "stealth/ox-alpha", privacy_classifications: ["public","internal"], supported_tasks: ["extraction","clarification","tool_selection","explanation"], latency_ms_p50: 800, cost_per_1k: 0.0002, structured_output: true },
   { provider: "huggingface", model_id: "meta-llama/Llama-3.1-8B-Instruct", privacy_classifications: ["public","internal"], supported_tasks: ["explanation","tool_selection"], latency_ms_p50: 1200, cost_per_1k: 0.0003, structured_output: true },
 ];
 
@@ -108,42 +108,79 @@ export class AgentModelProvider {
     return 8000;
   }
 
-  private async callOpenRouter(prompt: string, modelId: string, schema: Record<string, unknown> | undefined, timeoutMs: number): Promise<{ content: string; usage?: Record<string, number> }> {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const body: Record<string, unknown> = {
-        model: modelId,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-      };
-      if (schema) {
-        (body as any).response_format = { type: "json_object" };
-      }
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-          "X-Title": "ModelAtlas",
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`OpenRouter ${res.status}: ${text.slice(0,500)}`);
-      }
-      const json = await res.json() as any;
-      const content = json.choices?.[0]?.message?.content ?? JSON.stringify(json);
-      const usage = json.usage ? { prompt_tokens: json.usage.prompt_tokens, completion_tokens: json.usage.completion_tokens, total_tokens: json.usage.total_tokens } : undefined;
-      return { content, usage };
-    } finally {
-      clearTimeout(t);
+  private getOpenRouterKeys(): string[] {
+    const keys: string[] = [];
+    if (process.env.OPENROUTER_API_KEY) keys.push(process.env.OPENROUTER_API_KEY);
+    if (process.env.OPENROUTER_API_KEY_2) keys.push(process.env.OPENROUTER_API_KEY_2!);
+    if (process.env.OPENROUTER_API_KEY_3) keys.push(process.env.OPENROUTER_API_KEY_3!);
+    if (process.env.OPENROUTER_API_KEYS) {
+      const split = process.env.OPENROUTER_API_KEYS.split(",").map((s) => s.trim()).filter(Boolean);
+      keys.push(...split);
     }
+    return [...new Set(keys)];
+  }
+
+  private async callOpenRouter(prompt: string, modelId: string, schema: Record<string, unknown> | undefined, timeoutMs: number): Promise<{ content: string; usage?: Record<string, number> }> {
+    const keys = this.getOpenRouterKeys();
+    if (keys.length === 0) throw new Error("OPENROUTER_API_KEY not set");
+    let lastError: Error | null = null;
+    for (let idx = 0; idx < keys.length; idx++) {
+      const apiKey = keys[idx];
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const body: Record<string, unknown> = {
+          model: modelId,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+        };
+        if (schema) {
+          (body as any).response_format = { type: "json_object" };
+        }
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            "X-Title": "ModelAtlas",
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          const err = new Error(`OpenRouter ${res.status}: ${text.slice(0,500)}`);
+          // On rate-limit / 5xx, try next key if available
+          const isRateLimit = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 529;
+          if (isRateLimit && idx < keys.length - 1) {
+            console.warn(`[AgentModelProvider] OpenRouter key ${idx + 1}/${keys.length} rate-limited (${res.status}), trying next key`);
+            lastError = err;
+            continue;
+          }
+          throw err;
+        }
+        const json = (await res.json()) as any;
+        const content = json.choices?.[0]?.message?.content ?? JSON.stringify(json);
+        const usage = json.usage ? { prompt_tokens: json.usage.prompt_tokens, completion_tokens: json.usage.completion_tokens, total_tokens: json.usage.total_tokens } : undefined;
+        if (idx > 0) console.log(`[AgentModelProvider] OpenRouter succeeded with fallback key ${idx + 1}/${keys.length}`);
+        return { content, usage };
+      } catch (e) {
+        const err = e as Error;
+        const isAbort = err.name === "AbortError";
+        if (isAbort) throw err; // timeout — don't try next key, fallback to curated_fixture
+        lastError = err;
+        const isRateLimitMsg = err.message.includes("429") || err.message.includes("rate");
+        if (isRateLimitMsg && idx < keys.length - 1) {
+          console.warn(`[AgentModelProvider] OpenRouter key ${idx + 1} failed, trying next:`, err.message.slice(0,120));
+          continue;
+        }
+        throw err;
+      } finally {
+        clearTimeout(t);
+      }
+    }
+    throw lastError || new Error("OpenRouter: no keys available");
   }
 
   private async callHuggingFace(prompt: string, modelId: string, timeoutMs: number): Promise<{ content: string; usage?: Record<string, number> }> {
