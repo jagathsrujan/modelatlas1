@@ -14,7 +14,7 @@ const HF_ProviderSchema = z.object({
   status: z.string().optional(),
 }).passthrough();
 
-const HF_ModelRawSchema = z.object({
+export const HF_ModelRawSchema = z.object({
   id: z.string().optional(),
   modelId: z.string().optional(),
   name: z.string().optional(),
@@ -28,6 +28,10 @@ const HF_ModelRawSchema = z.object({
   // huggingface.co/api/models fields
   downloads: z.number().optional(),
   likes: z.number().optional(),
+  lastModified: z.string().optional(),
+  createdAt: z.string().optional(),
+  gated: z.union([z.boolean(), z.string()]).optional(),
+  safetensors: z.object({ total: z.number().optional(), parameters: z.record(z.string(), z.number()).optional() }).optional(),
   inference: z.string().optional(),
   private: z.boolean().optional(),
 }).passthrough();
@@ -38,7 +42,7 @@ const HF_InferenceProvidersResponseSchema = z.union([
   z.object({ providers: z.array(HF_ProviderSchema) }).passthrough(),
 ]);
 
-const HF_ModelsResponseSchema = z.union([
+export const HF_ModelsResponseSchema = z.union([
   z.array(HF_ModelRawSchema),
   z.object({ data: z.array(HF_ModelRawSchema) }).passthrough(),
 ]);
@@ -88,10 +92,19 @@ export class HuggingFaceAdapter {
 
   constructor(private fetchImpl: typeof fetch = fetch) {}
 
-  async fetchCatalog(opts?: { limit?: number; pipeline?: string; signal?: AbortSignal }): Promise<CatalogModel[]> {
+  async fetchCatalog(opts?: { limit?: number; page?: number; search?: string; task?: string; library?: string | string[]; license?: string | string[]; language?: string | string[]; sort?: string; pipeline?: string; signal?: AbortSignal }): Promise<CatalogModel[]> {
     if (typeof window !== "undefined") return [];
     const limit = opts?.limit ?? 20;
-    const pipeline = opts?.pipeline ?? "text-generation";
+    const page = opts?.page ?? 1;
+    const search = opts?.search;
+    const task = opts?.task ?? opts?.pipeline;
+    const library = opts?.library;
+    const license = opts?.license;
+    const language = opts?.language;
+    const sort = opts?.sort ?? "trending";
+    // pipeline legacy: if task not provided, fallback to pipeline, else task overrides
+    // For backward-compat, if neither task nor pipeline is provided, default to text-generation (used by fetchLiveCatalog)
+    const effectiveTask = task ?? (opts?.search || opts?.library || opts?.license || opts?.language ? undefined : "text-generation");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const signal = opts?.signal ?? controller.signal;
@@ -103,10 +116,38 @@ export class HuggingFaceAdapter {
       };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      // Primary: try inference-providers (provider list) — but we also need model metadata.
-      // Spec says /inference-providers — we fetch it for provenance and provider names, then fetch models for actual catalog.
-      // If token missing, we can still fetch public models endpoint (no auth needed).
-      const modelsFetchUrl = `${this.modelsUrl}?limit=${limit}&filter=${encodeURIComponent(pipeline)}&sort=likes&direction=-1`;
+      // Build HF URL with all filters per API CONTRACT
+      const url = new URL(this.modelsUrl);
+      if (search) url.searchParams.set("search", search);
+      // task as filter (legacy pipeline)
+      // Collect all filter values
+      const filters: string[] = [];
+      if (effectiveTask) filters.push(effectiveTask);
+      if (library) {
+        const libs = Array.isArray(library) ? library : [library];
+        for (const l of libs) if (l) filters.push(l);
+      }
+      if (license) {
+        const lics = Array.isArray(license) ? license : [license];
+        for (const l of lics) if (l) filters.push(l.startsWith("license:") ? l : `license:${l}`);
+      }
+      if (language) {
+        const langs = Array.isArray(language) ? language : [language];
+        for (const l of langs) if (l) filters.push(l);
+      }
+      // HF expects repeated filter= params (AND)
+      for (const f of filters) url.searchParams.append("filter", f);
+      // sort mapping: trending -> omit, likes -> likes, downloads -> downloads, updated -> lastModified, newest -> createdAt
+      const sortMap: Record<string, string> = { likes: "likes", downloads: "downloads", updated: "lastModified", trending: "", lastModified: "lastModified", createdAt: "createdAt" };
+      const hfSort = sortMap[sort];
+      if (hfSort) {
+        url.searchParams.set("sort", hfSort);
+        url.searchParams.set("direction", "-1");
+      }
+      url.searchParams.set("limit", String(limit));
+      url.searchParams.set("skip", String((page - 1) * limit));
+      url.searchParams.set("full", "false");
+      const modelsFetchUrl = url.toString();
 
       const res = await this.fetchImpl(modelsFetchUrl, { headers, signal });
       if (!res.ok) {
@@ -132,7 +173,7 @@ export class HuggingFaceAdapter {
         if (!modelId) continue;
         const creator = (r.author ?? modelId.split("/")[0] ?? "Unknown") as string;
         const name = (r.id as string) ?? modelId;
-        const tag = (r.pipeline_tag as string) ?? (r.tags?.[0] as string) ?? pipeline;
+        const tag = (r.pipeline_tag as string) ?? (r.tags?.[0] as string) ?? effectiveTask ?? "text-generation";
         const family = pipelineToFamily(tag, r.tags as string[] | undefined);
         const mods = pipelineToModalities(tag);
         const lic = (() => {
@@ -161,6 +202,14 @@ export class HuggingFaceAdapter {
             downloads: r.downloads,
             pipeline_tag: tag,
             inference: r.inference,
+            lastModified: r.lastModified,
+            createdAt: r.createdAt,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            safetensors: (r as any).safetensors,
+            gated: r.gated,
+            tags: r.tags,
+            library_name: r.library_name,
+            author: r.author ?? creator,
           },
           privacy_metadata: { local_capable: true },
           source_provenance: prov,
