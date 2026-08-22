@@ -167,15 +167,48 @@ export async function POST(req: NextRequest) {
     objective: preset === "maximum_performance" ? "higher_throughput" : "general",
   });
 
-  // 5) Direct cost calculation (deterministic, cost lines separate, never invent)
-  // For primary recommendation candidate after ranking, we compute landed/electricity/usage/compute separately
-  // Here we precompute horizon check — if missing, ranking will label over-budget but we still return cost error note
-  let costNote: string | undefined;
+  // 5) Direct cost — horizon required else block and ask (TECHNICAL_SPEC §4, cost-calculator returns error if missing)
   if (!workload.comparison_horizon_days) {
-    costNote = "Comparison horizon required to calculate total cost — ranking will show cost dimensions without total";
+    // Keep candidate retrieval + cluster info for context, but block before scoring as spec says
+    const freshnessSummaryBlock = {
+      catalog: {
+        current: catalogModels.filter(m => getFreshnessStatus(m.last_checked_at) === "current").length,
+        aging: catalogModels.filter(m => getFreshnessStatus(m.last_checked_at) === "aging").length,
+        stale: catalogModels.filter(m => getFreshnessStatus(m.last_checked_at) === "stale").length,
+        curated: catalogRes.isFallback,
+      },
+      marketplace: {
+        current: listings.filter(l => l.freshness_status === "current").length,
+        aging: listings.filter(l => l.freshness_status === "aging").length,
+        stale: listings.filter(l => l.freshness_status === "stale").length,
+        curated: isMarketplaceFallback,
+      },
+    };
+    return NextResponse.json(
+      {
+        error: "Comparison horizon required to calculate total cost — please specify horizon (e.g., 12 months).",
+        action: "block",
+        workloadId,
+        preset,
+        needsHorizon: true,
+        question: "What is your comparison horizon (e.g., 12 months)?",
+        costNote: "Comparison horizon required to calculate total cost — please specify horizon (e.g., 12 months).",
+        policy: policy ? { workspace_id: policy.workspace_id, maximum_privacy_classification: policy.maximum_privacy_classification } : null,
+        provenance: {
+          catalog: { provider: catalogRes.provenance.provider, count: catalogRes.models.length, isFallback: catalogRes.isFallback, errors: catalogRes.provenance.errors },
+          marketplace: marketplaceProvenance ? { ...marketplaceProvenance, isFallback: isMarketplaceFallback } : null,
+          freshness: freshnessSummaryBlock,
+        },
+        clusterPlan,
+        isDemo,
+        isAuthenticated,
+      },
+      { status: 422 },
+    );
   }
+  let costNote: string | undefined;
 
-  // 6) Preset scoring — deterministic ranking-engine (hard filters → 5 presets dims)
+  // 6) Preset scoring — deterministic ranking-engine (hard filters → 5 presets dims, then preset weights)
   const rankInput = {
     workload,
     policy,
