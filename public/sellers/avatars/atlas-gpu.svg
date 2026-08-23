@@ -1,0 +1,71 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Atlas GPU Rentals — H100/A100 stack with global globe</title>
+<defs>
+  <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+    <stop offset="0%" stop-color="#0d1319"/>
+    <stop offset="100%" stop-color="#050a10"/>
+  </radialGradient>
+  <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#00e5a0"/>
+    <stop offset="100%" stop-color="#00ffb3"/>
+  </linearGradient>
+</defs>
+<rect width="512" height="512" rx="32" fill="url(#bg)"/>
+<!-- globe -->
+<g transform="translate(256,145)">
+  <ellipse cx="0" cy="0" rx="110" ry="95" fill="none" stroke="#00e5a0" stroke-width="1.2" opacity="0.9"/>
+  <ellipse cx="0" cy="0" rx="110" ry="95" fill="none" stroke="#00e5a0" stroke-width="0.6" opacity="0.35"/>
+  <!-- continents simplified -->
+  <path d="M -55 -15 L -40 -30 L -25 -25 L -18 -10 L -10 -12 L 5 -28 L 20 -30 L 35 -18 L 45 -8 L 40 10 L 30 22 L 15 35 L 0 45 L -15 38 L -35 20 L -50 5 Z" fill="none" stroke="#00e5a0" stroke-width="1.4" opacity="0.85"/>
+  <path d="M -70 15 L -55 25 L -40 30 L -30 28 L -20 22 L -10 15 L 0 12 L 10 8 L 15 -5 L 8 -18 L -12 -22 L -35 -18 Z" fill="none" stroke="#00e5a0" stroke-width="1.2" opacity="0.7"/>
+  <!-- orbit -->
+  <ellipse cx="0" cy="8" rx="145" ry="48" fill="none" stroke="#00e5a0" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>
+  <circle cx="-125" cy="-5" r="6" fill="#00e5a0"/>
+  <circle cx="138" cy="22" r="5" fill="#00e5a0" opacity="0.9"/>
+  <circle cx="105" cy="-38" r="4" fill="#00e5a0" opacity="0.8"/>
+</g>
+<!-- base platform -->
+<path d="M 38 410 L 474 410 L 474 435 C 474 452 462 464 445 464 L 67 464 C 50 464 38 452 38 435 Z" fill="#0f1720" stroke="#1a2a3a" stroke-width="1"/>
+<rect x="38" y="410" width="436" height="18" rx="4" fill="#0f1720"/>
+<!-- green outline -->
+<path d="M 62 360 L 62 330 L 430 330 L 452 345 L 452 390 L 430 405 L 62 405 Z" fill="none" stroke="#00e5a0" stroke-width="1.8" opacity="0.9"/>
+<!-- left racks -->
+<g fill="#131d2a" stroke="#1e2e3e" stroke-width="1">
+  <rect x="52" y="185" width="70" height="165" rx="6"/>
+  <rect x="122" y="170" width="62" height="165" rx="6"/>
+  <!-- right racks -->
+  <rect x="328" y="170" width="62" height="165" rx="6"/>
+  <rect x="390" y="185" width="70" height="165" rx="6"/>
+</g>
+<!-- rack details green -->
+<g fill="#00e5a0" opacity="0.9">
+  <rect x="60" y="210" width="14" height="6" rx="1"/><rect x="60" y="225" width="14" height="6" rx="1"/><rect x="60" y="240" width="14" height="6" rx="1"/><rect x="60" y="255" width="14" height="6" rx="1"/><rect x="60" y="270" width="14" height="6" rx="1"/><rect x="60" y="285" width="14" height="6" rx="1"/>
+  <rect x="130" y="200" width="12" height="5" rx="1"/><rect x="130" y="213" width="12" height="5" rx="1"/><rect x="130" y="226" width="12" height="5" rx="1"/><rect x="130" y="239" width="12" height="5" rx="1"/><rect x="130" y="252" width="12" height="5" rx="1"/><rect x="130" y="265" width="12" height="5" rx="1"/>
+  <rect x="336" y="200" width="12" height="5" rx="1"/><rect x="336" y="213" width="12" height="5" rx="1"/><rect x="336" y="226" width="12" height="5" rx="1"/><rect x="336" y="239" width="12" height="5" rx="1"/>
+  <rect x="398" y="210" width="14" height="6" rx="1"/><rect x="398" y="225" width="14" height="6" rx="1"/><rect x="398" y="240" width="14" height="6" rx="1"/><rect x="398" y="255" width="14" height="6" rx="1"/>
+  <rect x="398" y="300" width="18" height="6" rx="1" opacity="0.6"/>
+  <rect x="420" y="345" width="10" height="10" rx="2"/>
+</g>
+<!-- small right box -->
+<rect x="410" y="320" width="48" height="60" rx="4" fill="#131d2a" stroke="#00e5a0" stroke-width="1.2"/>
+<g fill="#00e5a0">
+  <rect x="418" y="333" width="32" height="4" rx="1"/><rect x="418" y="341" width="32" height="4" rx="1"/><rect x="418" y="349" width="32" height="4" rx="1"/><rect x="418" y="357" width="32" height="4" rx="1"/>
+</g>
+<!-- stacked GPUs center -->
+<g transform="translate(256,300)">
+  <!-- 4 GPUs stacked -->
+  <g transform="translate(0,45)"><rect x="-110" y="-30" width="220" height="28" rx="4" fill="#0f1f2e" stroke="#00e5a0" stroke-width="1.2"/><rect x="-105" y="-24" width="210" height="4" rx="1" fill="#00e5a0" opacity="0.8"/><circle cx="95" cy="-16" r="4" fill="#00e5a0"/><rect x="-95" y="-18" width="18" height="6" rx="1" fill="#00e5a0" opacity="0.7"/></g>
+  <g transform="translate(0,22)"><rect x="-110" y="-30" width="220" height="28" rx="4" fill="#122636" stroke="#00e5a0" stroke-width="1.4"/><rect x="-105" y="-24" width="210" height="4" rx="1" fill="#00e5a0"/><circle cx="95" cy="-16" r="4" fill="#00e5a0"/><rect x="88" y="-25" width="6" height="6" rx="1" fill="#00e5a0" opacity="0.8"/></g>
+  <g transform="translate(0,-1)"><rect x="-110" y="-30" width="220" height="28" rx="4" fill="#162e42" stroke="#00ffb3" stroke-width="1.4"/><rect x="-105" y="-24" width="210" height="4" rx="1" fill="#00ffb3"/><circle cx="95" cy="-16" r="4" fill="#00e5a0"/><rect x="88" y="-25" width="6" height="6" rx="1" fill="#00e5a0"/></g>
+  <!-- top GPU with fans -->
+  <rect x="-125" y="-65" width="250" height="62" rx="8" fill="#0a1620" stroke="#00ffb3" stroke-width="1.6"/>
+  <rect x="-120" y="-60" width="240" height="4" rx="1" fill="#00ffb3" opacity="0.9"/>
+  <!-- fans -->
+  <circle cx="-70" cy="-30" r="28" fill="#06101a" stroke="#1a3a4a" stroke-width="1"/><g stroke="#2a4a5a" stroke-width="1" opacity="0.7"><line x1="-70" y1="-58" x2="-70" y2="-2"/><line x1="-98" y1="-30" x2="-42" y2="-30"/><line x1="-90" y1="-50" x2="-50" y2="-10"/><line x1="-50" y1="-50" x2="-90" y2="-10"/></g><circle cx="-70" cy="-30" r="9" fill="#0f2a3a" stroke="#00e5a0" stroke-width="1"/>
+  <circle cx="0" cy="-30" r="28" fill="#06101a" stroke="#1a3a4a" stroke-width="1"/><g stroke="#2a4a5a" stroke-width="1" opacity="0.7"><line x1="0" y1="-58" x2="0" y2="-2"/><line x1="-28" y1="-30" x2="28" y2="-30"/><line x1="-20" y1="-50" x2="20" y2="-10"/><line x1="20" y1="-50" x2="-20" y2="-10"/></g><circle cx="0" cy="-30" r="9" fill="#0f2a3a" stroke="#00e5a0" stroke-width="1"/>
+  <circle cx="70" cy="-30" r="28" fill="#06101a" stroke="#1a3a4a" stroke-width="1"/><g stroke="#2a4a5a" stroke-width="1" opacity="0.7"><line x1="70" y1="-58" x2="70" y2="-2"/><line x1="42" y1="-30" x2="98" y2="-30"/><line x1="50" y1="-50" x2="90" y2="-10"/><line x1="90" y1="-50" x2="50" y2="-10"/></g><circle cx="70" cy="-30" r="9" fill="#0f2a3a" stroke="#00e5a0" stroke-width="1"/>
+  <!-- side LEDs -->
+  <rect x="-125" y="-35" width="6" height="10" rx="1" fill="#00e5a0"/><rect x="-125" y="-20" width="6" height="10" rx="1" fill="#00e5a0"/>
+  <rect x="119" y="-45" width="4" height="4" rx="1" fill="#00e5a0"/><rect x="119" y="-35" width="4" height="4" rx="1" fill="#00e5a0"/>
+</g>
+</svg>

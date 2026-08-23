@@ -403,6 +403,7 @@ export const SellerProfileSchema = z.object({
   regions: z.array(z.string()).min(1), // IN, US only V1 but flexible
   website: z.string().url().nullable().optional().or(z.literal("").optional()),
   verification_status: VerificationStatusSchema.default("unverified"),
+  avatar_url: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

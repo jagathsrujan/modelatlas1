@@ -47,14 +47,23 @@ export default function SellerProfileClient({ sellerId, demo: demoProp }: { sell
         <Link href={demo ? "/sellers?demo=true" : "/sellers"} className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">← Back to sellers</Link>
 
         <div className="mt-4 rounded-2xl border bg-white p-6 dark:bg-zinc-900 dark:border-zinc-800">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold">{seller.display_name}</h1>
-              {seller.legal_name && <p className="text-xs text-zinc-500">{seller.legal_name}</p>}
+          <div className="flex items-start gap-4">
+            {(seller as any).avatar_url ? (
+              <img src={(seller as any).avatar_url} alt={`${seller.display_name} avatar`} className="h-20 w-20 shrink-0 rounded-2xl border bg-white object-contain p-1 dark:bg-zinc-900 dark:border-zinc-700" />
+            ) : (
+              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border bg-zinc-50 text-sm font-bold dark:bg-zinc-800">{seller.display_name.slice(0,2).toUpperCase()}</div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-xl font-semibold">{seller.display_name}</h1>
+                  {seller.legal_name && <p className="text-xs text-zinc-500">{seller.legal_name}</p>}
+                </div>
+                <Badge status={seller.verification_status} />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-700 dark:text-zinc-300">{seller.bio ?? "No bio"}</p>
             </div>
-            <Badge status={seller.verification_status} />
           </div>
-          <p className="mt-3 text-sm leading-6 text-zinc-700 dark:text-zinc-300">{seller.bio ?? "No bio"}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {seller.service_types.map(t => <span key={t} className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:bg-white dark:text-zinc-900">{t}</span>)}
           </div>

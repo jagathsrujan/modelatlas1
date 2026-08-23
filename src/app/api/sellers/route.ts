@@ -100,7 +100,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid query", details: parsed.error.flatten() }, { status: 400 });
   }
   const { service_type, region, q, verifiedOnly, limit, page, demo } = parsed.data;
+  const hasDemoParam = sp.has("demo");
   const isDemoQuery = demo === "true" || sp.get("demo") === "true";
+  const isDemoExplicitFalse = hasDemoParam && sp.get("demo") === "false";
   const isDemoEnv = process.env.NEXT_PUBLIC_DEMO_FALLBACK === "true";
   // Auth check — still allow unauth to see verified only
   let userId: string | null = null;
@@ -110,7 +112,7 @@ export async function GET(req: NextRequest) {
     userId = user?.id ?? null;
   } catch { userId = null; }
 
-  const isDemo = isDemoQuery || (!userId && isDemoEnv) || sp.has("demo") && isDemoQuery === false ? false : isDemoQuery || isDemoEnv && !userId ? true : isDemoQuery;
+  const isDemo = isDemoQuery || (!isDemoExplicitFalse && !userId && isDemoEnv);
 
   // Decide demo vs live: if demo true, use LocalRepository; else try live supabase
   // For unauth live, still return verified only via supabase RLS or via local fallback
@@ -136,14 +138,10 @@ export async function GET(req: NextRequest) {
         { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
       );
     } else {
-      // Live path: try supabase first, fallback to local if table missing
+      // Live path: try supabase first, fallback to local if table missing/empty (keeps demo green until migration applied)
       try {
         const supabase = await createClient();
-        // Use repository that will query supabase with RLS (verified OR own)
         const repo = await getRepository({ isDemo: false });
-        // getRepository for live will return SupabaseRepository if authenticated, else local
-        // If user is unauthenticated, it returns local (which filters verified only)
-        // So we can just delegate
         const effectiveVerifiedOnly = verifiedOnly;
         const res = await repo.listSellers({
           service_type,
@@ -154,10 +152,27 @@ export async function GET(req: NextRequest) {
           page,
           requesterId: userId,
         });
-        const isFallback = res.profiles.length === 0 ? false : false;
-        // Check if we got local sellers due to missing table — still return
+        if (res.total === 0) {
+          // Supabase empty (table missing PGRST205 or no verified sellers) → fallback to local seed
+          const localRepo = await getRepository({ isDemo: true });
+          const localRes = await localRepo.listSellers({
+            service_type,
+            region,
+            q,
+            verifiedOnly: effectiveVerifiedOnly,
+            limit,
+            page,
+            requesterId: userId,
+          });
+          if (localRes.total > 0) {
+            return NextResponse.json(
+              { sellers: localRes.profiles, total: localRes.total, page, limit, isFallback: true },
+              { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
+            );
+          }
+        }
         return NextResponse.json(
-          { sellers: res.profiles, total: res.total, page, limit, isFallback },
+          { sellers: res.profiles, total: res.total, page, limit, isFallback: false },
           { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
         );
       } catch (e) {

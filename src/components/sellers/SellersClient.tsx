@@ -136,11 +136,20 @@ export default function SellersClient({ initialFilters }: { initialFilters: { q:
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {sellers.map(s => (
                 <div key={s.id} className="flex flex-col rounded-2xl border bg-white p-5 shadow-sm dark:bg-zinc-900 dark:border-zinc-800">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-semibold">{s.display_name}</h3>
-                    <Badge status={s.verification_status} />
+                  <div className="flex items-start gap-3">
+                    {(s as any).avatar_url ? (
+                      <img src={(s as any).avatar_url} alt={`${s.display_name} avatar`} className="h-12 w-12 shrink-0 rounded-xl border bg-white object-contain p-1 dark:bg-zinc-800 dark:border-zinc-700" />
+                    ) : (
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border bg-zinc-50 text-xs font-bold dark:bg-zinc-800 dark:border-zinc-700">{s.display_name.slice(0,2).toUpperCase()}</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-sm font-semibold leading-tight">{s.display_name}</h3>
+                        <Badge status={s.verification_status} />
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{s.bio ?? "No bio"}</p>
+                    </div>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{s.bio ?? "No bio"}</p>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {s.service_types.map(t => <span key={t} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs dark:bg-zinc-800 dark:text-zinc-300">{t}</span>)}
                   </div>

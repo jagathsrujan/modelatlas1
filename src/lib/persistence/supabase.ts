@@ -357,6 +357,7 @@ export class SupabaseRepository implements Repository {
       regions: p.regions,
       website: (p as any).website ?? null,
       verification_status: p.verification_status,
+      avatar_url: (p as any).avatar_url ?? null,
       updated_at: new Date().toISOString(),
     } as any);
     if (error) throw error;
@@ -374,6 +375,7 @@ export class SupabaseRepository implements Repository {
       regions: (data as any).regions ?? [],
       website: (data as any).website,
       verification_status: (data as any).verification_status,
+      avatar_url: (data as any).avatar_url ?? null,
       created_at: (data as any).created_at,
       updated_at: (data as any).updated_at,
     } as any;
@@ -390,6 +392,7 @@ export class SupabaseRepository implements Repository {
       regions: r.regions ?? [],
       website: r.website,
       verification_status: r.verification_status,
+      avatar_url: r.avatar_url ?? null,
       created_at: r.created_at,
       updated_at: r.updated_at,
     })) as import("@/lib/domain/types").SellerProfile[];

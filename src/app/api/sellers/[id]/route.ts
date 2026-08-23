@@ -19,9 +19,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch { userId = null; }
 
   try {
-    const repo = await getRepository({ isDemo: useLocal ? true : false });
-    const profile = await repo.getSeller(id);
-    if (!profile) {
+    let repo = await getRepository({ isDemo: useLocal ? true : false });
+    let profile = await repo.getSeller(id);
+    // Fallback to local seed if Supabase table missing (PGRST205) and local has seller — keeps demo green
+    if (!profile && !useLocal) {
+      const localRepo = await getRepository({ isDemo: true });
+      const localProfile = await localRepo.getSeller(id);
+      if (localProfile) {
+        profile = localProfile;
+        repo = localRepo;
+      } else {
+        return NextResponse.json({ error: "Seller not found" }, { status: 404 });
+      }
+    } else if (!profile) {
       return NextResponse.json({ error: "Seller not found" }, { status: 404 });
     }
     // Rejected/suspended never visible to others
